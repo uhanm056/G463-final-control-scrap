@@ -18,12 +18,14 @@ nebo z GitHub Pages / OneDrive.
   - `CZ25170_Kontrolný_report_-_Prefix.xlsm` — finální kontrola Prefix, L1/L2
   - `CZ26027_Kontrolný_report_MC_Prefix.xlsm` — kontrola MC (posouzení, NOK)
   - `ArchivPosouzeni_MainCarrier.xlsx` — posouzení PREFIX/SKLAD + sklad na rework
-  - `scrap_QAD_*.xlsx` (list `Data QAD`) — scrap, location PCO001
+  - `scrap_QAD_*.xlsx` (list `Data QAD`) — scrap, location PCO001 (jde nahrát i plný 20MB export)
   Import se ukládá do localStorage daného prohlížeče. Záloha/obnova = JSON.
+- **TV**: otevři `index.html#tab=0&tv` — bez lišt, hodiny, obnovení každých 15 min.
 
 ## Sestavení (jen když chceš data zapéct do souboru)
 
 ```
+node tools/scrap-extract.js <scrap_QAD_export.xlsx> PCO001   # 20MB export → data/scrap_QAD_PCO001.xlsx
 node build.js          # data/*.xls* → docs/index.html
 node test/parser.test.js
 ```

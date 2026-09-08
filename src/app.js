@@ -214,7 +214,7 @@
       var sp = last10(days, pd.day), wo = eurD(pd.day, true), wt = eurD(pd.day, false);
       tiles.push(tile({ id: 'd-sc', title: 'Scrap PCO001', color: COL.s8, day: pd.day, prev: pd.prev,
         main: { label: 'Scrap w/o tests', value: fmt(wo), unit: 'EUR', rag: ragRel(wo, pd.prev ? eurD(pd.prev, true) : null, 25, 50) },
-        rows: [['With tests', fmt(wt) + ' EUR', null], ['Transakce', fmt(today.length) + ' ks', null]],
+        rows: [['With tests', fmt(wt) + ' EUR', null], ['Transakce', fmt(today.length) + ' ks · ' + fmt(today.reduce(function (a, r) { return a + Math.abs(r.qty || 0); }, 0)) + ' dílů', null]].concat((function () { var bv = sumBy(today, function (r) { return r.variant; }, function (r) { return r.eur; }); return Object.keys(bv).sort(function (a, b) { return bv[b] - bv[a]; }).slice(0, 1).map(function (v) { return ['Nejvíc: ' + v, fmt(bv[v]) + ' EUR (' + fmt(pct(bv[v], wo), 0) + ' %)', null]; }); })()),
         top: Object.keys(byR).sort(function (a, b) { return byR[b] - byR[a]; }).slice(0, 3).map(function (r) { return { label: r + ' · ' + (descOf[r] || ''), value: fmt(byR[r]) + ' EUR' }; }), topTitle: 'Top 3 reason dnes',
         spark: { name: 'EUR w/o tests', labels: sp, values: sp.map(function (d) { return eurD(d, true); }), type: 'bar' } }));
     })();
@@ -376,6 +376,8 @@
     h += '<div class="grid3">' + kpiCard({ title: 'Scrap w/o tests', value: fmt(wo[lt.last] || 0), unit: 'EUR', rag: ragRel(wo[lt.last] || 0, lt.prev ? (wo[lt.prev] || 0) : null, 25, 50), sub: cmpLabel(lt) })
       + kpiCard({ title: 'Scrap with tests', value: fmt(wt[lt.last] || 0), unit: 'EUR', rag: ragRel(wt[lt.last] || 0, lt.prev ? (wt[lt.prev] || 0) : null, 25, 50), sub: cmpLabel(lt) })
       + kpiCard({ title: 'Transakce (w/o tests)', value: fmt(tx[lt.last] || 0), unit: 'ks', rag: ragRel(tx[lt.last] || 0, lt.prev ? (tx[lt.prev] || 0) : null, 25, 5), sub: cmpLabel(lt) }) + '</div>';
+    var srcS = DB.sources.filter(function (x) { return x.type === 'scrap' && x.stats; }).pop();
+    if (srcS) h += '<p class="muted" style="margin:-6px 0 14px">Export: ' + esc(srcS.file) + ' · řádků celkem ' + fmt(srcS.stats.rows) + ' · jiná location ' + fmt(srcS.stats.otherLoc) + ' · duplicity ' + fmt(srcS.stats.dup) + ' · EUR ≤ 0 vyřazeno ' + fmt(srcS.stats.nonpos) + ' · rozsah ' + esc(srcS.from) + ' → ' + esc(srcS.to) + '</p>';
     var ser = [{ name: 'W/O tests', color: COL.s1, values: periods.map(function (p) { return wo[p] || null; }) }, { name: 'Testy (kód 20)', color: COL.s4, values: periods.map(function (p) { return tests[p] || null; }) }];
     var last = inc.filter(function (r) { return pk(r) === lt.last && !r.test; }), byR = sumBy(last, function (r) { return r.reason; }, function (r) { return r.eur; }), descOf = {}, cntR = sumBy(last, function (r) { return r.reason; });
     last.forEach(function (r) { descOf[r.reason] = r.desc; });
@@ -386,9 +388,22 @@
         cum = 0;
         return C.hbars({ width: w, labelWidth: 230, rows: reasons.map(function (r) { cum += byR[r]; return { label: r + ' · ' + (descOf[r] || ''), values: [byR[r]], notes: [fmt(pct(byR[r], tot), 0) + ' % · kum. ' + fmt(pct(cum, tot), 0) + ' % · ' + fmt(cntR[r]) + ' tx'] }; }), series: [{ name: 'EUR', color: COL.s1 }], unit: ' EUR' });
       })) + '</div>';
+    var byV = sumBy(last, function (r) { return r.variant; }, function (r) { return r.eur; }), qtyV = sumBy(last, function (r) { return r.variant; }, function (r) { return Math.abs(r.qty || 0); });
+    var vrows = P.VARIANTS.concat(['ostatní']).filter(function (v) { return byV[v]; }).map(function (v) { return { label: v, values: [byV[v]], notes: [fmt(pct(byV[v], tot), 0) + ' % · ' + fmt(qtyV[v]) + ' ks'] }; });
+    var vs = P.VARIANTS.concat(['ostatní']).map(function (v) { var c = sumBy(inc, pk, function (r) { return r.eur; }, function (r) { return r.variant === v && !r.test; }); return { name: v, color: VAR_COL[v], values: periods.map(function (p) { return c[p] || null; }) }; }).filter(function (sr) { return sr.values.some(function (x) { return x; }); });
+    h += '<div class="two">' + panel('Scrap podle varianty (w/o tests) — ' + plabelLong(lt.last), defChart('sc-var', function (w) {
+      return C.hbars({ width: w, rows: vrows, series: [{ name: 'EUR', color: COL.s1 }], unit: ' EUR' });
+    })) + panel('Scrap EUR podle varianty za období (w/o tests)', C.legend(vs) + defChart('sc-var-tr', function (w) { return C.xyChart({ width: w, height: 260, labels: periods.map(plabel), tipLabels: periods.map(plabelLong), series: vs, stacked: true, barLabels: true, unit: ' EUR' }); })) + '</div>';
+    // propojení posouzení -> scrap: stejné kódy vad (SPF, SSP2, PMEP, NRW, ...)
+    var posLast = DB.pos.filter(function (r) { return pk(r) === lt.last; }), posByCode = sumBy(posLast, function (r) { return r.code; }), scrapCnt = sumBy(last, function (r) { return r.reason; });
+    var codes = {}; Object.keys(posByCode).forEach(function (c) { codes[c] = 1; }); Object.keys(byR).forEach(function (c) { codes[c] = 1; });
+    var linkRows = Object.keys(codes).map(function (c) { return { code: c, pos: posByCode[c] || 0, n: scrapCnt[c] || 0, eur: byR[c] || 0, desc: descOf[c] || '' }; }).sort(function (a, b) { return (b.eur - a.eur) || (b.pos - a.pos); }).slice(0, 15);
+    if (!DB.pos.length) linkRows = [];
     h += '<div class="two">' + panel('Top díly (w/o tests) — ' + plabelLong(lt.last), defChart('sc-item', function (w) {
       return C.hbars({ width: w, labelWidth: 230, rows: items.map(function (i) { return { label: i, values: [byI[i]] }; }), series: [{ name: 'EUR', color: COL.s1 }], unit: ' EUR' });
-    })) + panel('Přehled období', table(['Období', 'W/O tests EUR', 'Testy EUR', 'With tests EUR', 'Transakce'], periods.slice().reverse().map(function (p) { return [esc(plabelLong(p)), fmt(wo[p] || 0), fmt(tests[p] || 0), fmt(wt[p] || 0), fmt(tx[p] || 0)]; }))) + '</div>';
+    })) + panel('Posouzení → scrap podle kódu — ' + plabelLong(lt.last) + ' <span class="muted">(stejné kódy vad; posouzení = PREFIX + SKLAD)</span>', linkRows.length ? table(['Kód', 'Popis', 'Na posouzení (MC)', 'Scrap transakce', 'Scrap EUR'], linkRows.map(function (r) { return [esc(r.code), r.desc, fmt(r.pos), fmt(r.n), fmt(r.eur)]; })) : empty('Bez dat posouzení.')) + '</div>';
+    var exc = sumBy(DB.scrap, pk, function (r) { return r.eur; }, function (r) { return r.excluded; });
+    h += panel('Přehled období <span class="muted">(Vyloučeno = Excluded? = YES: LAB, technologický scrap, PPAP… — do QLR nejde)</span>', table(['Období', 'W/O tests EUR', 'Testy (kód 20) EUR', 'With tests EUR', 'Vyloučeno EUR', 'Transakce'], periods.slice().reverse().map(function (p) { return [esc(plabelLong(p)), fmt(wo[p] || 0), fmt(tests[p] || 0), fmt(wt[p] || 0), fmt(exc[p] || 0), fmt(tx[p] || 0)]; })));
     return h;
   }
 

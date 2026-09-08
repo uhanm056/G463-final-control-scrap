@@ -248,12 +248,12 @@ var G463Parser = (function () {
       if (!d) { warn.add('scrap-date', 'Data QAD: nečitelné datum', str(row[C.date])); continue; }
       d = sanitizeDate(d, warn, 'Data QAD', today);
       if (!d) continue;
-      var reason = str(row[C.reason]);
+      var reason = str(row[C.reason]), item = C.item != null ? str(row[C.item]) : '';
       out.push({
-        tx: tx, d: isoDate(d), w: isoWeek(d), reason: reason,
+        tx: tx, d: isoDate(d), w: isoWeek(d), reason: reason, variant: pnVariant(item) || 'ostatní',
         desc: C.desc != null ? str(row[C.desc]) : reason,
         group: C.group != null ? str(row[C.group]) : '',
-        item: C.item != null ? str(row[C.item]) : '',
+        item: item,
         excluded: /^y/i.test(str(row[C.excl])) || /^ano/i.test(str(row[C.excl])),
         test: reason === opts.testReason,
         eur: eur, qty: C.qty != null ? num(row[C.qty]) : null

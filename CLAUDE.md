@@ -62,7 +62,11 @@ Tohle jsou explicitní pravidla od uživatele, ověřená v praxi:
   `Date`, `Location`, `Reason`, `Description reason`, `Group 2`, `Excluded?`, `EUR`
   - Filter: Location == 'PCO001', Transaction Type == 'ISS-SCRP', EUR > 0, dedup přes Transaction Number
   - W/O tests = Excluded? = NO a Reason ≠ 20; With tests = Excluded? = NO (viz skill qlr-mesicni-report)
-  - Zatím neověřeno na reálném exportu (nebyl k dispozici) — při prvním importu zkontrolovat
+  - Ověřeno na exportu 9/2026 (39 613 řádků, PCO001 2 674, po filtru 2 628; po Excluded?=NO zbývá jen kód 20)
+  - Plný export má 20 MB (celý závod) → do repa jen extrakt: `node tools/scrap-extract.js <export> PCO001`
+    → `data/scrap_QAD_PCO001.xlsx`. V prohlížeči jde nahrát i plný export.
+  - Reason kódy scrapu (SPF, SSP2, PMEP, NRW, PDSP…) = kódy posouzení → záložka Scrap má tabulku
+    Posouzení → scrap podle kódu. Varianta ze sloupce Item Number (stejné rodiny PN jako posouzení).
 
 ## Vyřešené bugy (ať se nerozbijí — pokryto `test/parser.test.js`)
 
@@ -81,7 +85,6 @@ Tohle jsou explicitní pravidla od uživatele, ověřená v praxi:
 
 - Gemba walk L1 pravá strana (tryska robota RH, přípravek) — root cause "Znečistenie od lepidla"
   (vada je jen na RH variantách, LH ~0 %)
-- Scrap: ověřit parser na reálném QAD exportu, doplnit Group 2 / item rozpad
 - MC report W36 2026: 11 170 vad na 1 639 ks (682/100) — ověřit zadání kontrolovaných ks
 - Export do Excelu přímo z panelu
 - Denní TV: dlaždice ukazují poslední den s daty per zdroj; den lze zvolit ručně (S.day)
