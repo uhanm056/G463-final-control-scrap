@@ -6,10 +6,14 @@ nebo z GitHub Pages / OneDrive.
 
 ## Použití
 
-- Otevři `docs/index.html`. Záložky: Přehled · Finální kontrola Prefix (L1/L2 odděleně) ·
+- Otevři `docs/index.html`. Záložky: Denní TV · Přehled · Finální kontrola Prefix (L1/L2 odděleně) ·
   Kontrola MC · Posouzení · Scrap · Data & metodika.
-- Přepínač **Týden / Měsíc** a počet zobrazených období platí pro všechny záložky.
-- Přímý odkaz na záložku: `index.html#tab=1` (0–5) — hodí se pro TV.
+- **Denní TV** = dlaždice per zdroj (L1, L2, MC, posouzení PREFIX/SKLAD, sklad→rework, scrap),
+  poslední den s daty vs předchozí den, top 3 a trend 10 dnů. Šipkami/datem lze zvolit jiný den.
+- **TV režim**: `index.html#tab=0&tv` — bez lišt, 4 sloupce, hodiny, automatické obnovení
+  stránky každých 15 min (nová data z GitHub Pages / OneDrive se načtou samy).
+- Přepínač **Týden / Měsíc** a počet zobrazených období platí pro týdenní/měsíční záložky.
+- Přímý odkaz na záložku: `index.html#tab=N` (0 = Denní TV, 1 = Přehled, … 6 = Data).
 - **Nová data** přetáhni do záložky *Data & metodika* (typ souboru se pozná podle listu):
   - `CZ25170_Kontrolný_report_-_Prefix.xlsm` — finální kontrola Prefix, L1/L2
   - `CZ26027_Kontrolný_report_MC_Prefix.xlsm` — kontrola MC (posouzení, NOK)

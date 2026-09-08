@@ -26,6 +26,7 @@ var G463Charts = (function () {
   /* Sloupce (skupinově / stackované) a čáry nad kategoriální osou X, jedna osa Y. */
   function xyChart(o) {
     var W = o.width || 800, H = o.height || 260, padL = 56, padR = 20, padT = 14, padB = 36;
+    if (o.mini) { padL = 6; padR = 44; padT = 8; padB = 18; }
     var labels = o.labels || [], n = labels.length, series = o.series || [];
     var bars = series.filter(function (s) { return s.type !== 'line'; }), lines = series.filter(function (s) { return s.type === 'line'; });
     var fmt = o.fmt || function (v) { return fmtNum(v, o.dec || 0); };
@@ -40,13 +41,14 @@ var G463Charts = (function () {
     var s = '<svg class="ch" viewBox="0 0 ' + W + ' ' + H + '" width="' + W + '" height="' + H + '" role="img" font-family="' + SANS + '">';
     // grid + osa Y
     for (i = 0; i < ticks.length; i++) {
+      if (o.mini && ticks[i] !== 0) continue;
       s += '<line x1="' + padL + '" x2="' + (W - padR) + '" y1="' + y(ticks[i]).toFixed(1) + '" y2="' + y(ticks[i]).toFixed(1) + '" stroke="' + (ticks[i] === 0 ? INK.axis : INK.grid) + '" stroke-width="1"/>';
-      s += '<text x="' + (padL - 8) + '" y="' + (y(ticks[i]) + 4).toFixed(1) + '" text-anchor="end" font-size="12" font-family="' + MONO + '" fill="' + INK.muted + '">' + esc(fmt(ticks[i])) + '</text>';
+      if (!o.mini) s += '<text x="' + (padL - 8) + '" y="' + (y(ticks[i]) + 4).toFixed(1) + '" text-anchor="end" font-size="12" font-family="' + MONO + '" fill="' + INK.muted + '">' + esc(fmt(ticks[i])) + '</text>';
     }
     // popisky X (řídce, aby se nepřekrývaly)
     var every = Math.max(1, Math.ceil(n / Math.floor(w / 56)));
-    for (i = 0; i < n; i++) if ((n - 1 - i) % every === 0)
-      s += '<text x="' + xc(i).toFixed(1) + '" y="' + (H - padB + 18) + '" text-anchor="middle" font-size="12" fill="' + INK.secondary + '">' + esc(labels[i]) + '</text>';
+    for (i = 0; i < n; i++) if (o.mini ? (i === 0 || i === n - 1) : (n - 1 - i) % every === 0)
+      s += '<text x="' + xc(i).toFixed(1) + '" y="' + (H - padB + (o.mini ? 13 : 18)) + '" text-anchor="' + (o.mini ? (i === 0 ? 'start' : 'end') : 'middle') + '" font-size="' + (o.mini ? 10 : 12) + '" fill="' + INK.secondary + '">' + esc(labels[i]) + '</text>';
     // sloupce
     if (bars.length) {
       var groupW = Math.min(slot * 0.72, 64), nb = o.stacked ? 1 : bars.length, bw = groupW / nb;

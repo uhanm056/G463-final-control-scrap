@@ -6,7 +6,8 @@ Kontext pro Claude Code. Přečti si to na začátku každé session a drž se t
 
 Interaktivní HTML dashboard pro linku **G463 Prefix** (door trim panely) v závodě
 Yanfeng Planá nad Lužnicí. Od 9/2026 jeden soubor `docs/index.html` se záložkami
-Přehled · Finální kontrola Prefix (L1/L2) · Kontrola MC · Posouzení · Scrap · Data & metodika.
+Denní TV (dlaždice, `#tab=0&tv` = režim pro TV) · Přehled · Finální kontrola Prefix (L1/L2) ·
+Kontrola MC · Posouzení · Scrap · Data & metodika.
 Nahrazuje původní dva soubory (`dashboard_PREFIX_W28.html`, `dashboard_SCRAP_PCO001.html`).
 
 Struktura repa: `src/` (parser.js, charts.js, app.js, styles.css, template.html) →
@@ -83,7 +84,7 @@ Tohle jsou explicitní pravidla od uživatele, ověřená v praxi:
 - Scrap: ověřit parser na reálném QAD exportu, doplnit Group 2 / item rozpad
 - MC report W36 2026: 11 170 vad na 1 639 ks (682/100) — ověřit zadání kontrolovaných ks
 - Export do Excelu přímo z panelu
-- Denní pohled (parser drží denní granularitu, UI zatím týden/měsíc)
+- Denní TV: dlaždice ukazují poslední den s daty per zdroj; den lze zvolit ručně (S.day)
 
 ## Styl práce
 
