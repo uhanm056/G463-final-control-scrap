@@ -11,9 +11,9 @@
     red: { cls: 'rag-red', icon: '▲', label: 'zhoršení' }, green: { cls: 'rag-green', icon: '▼', label: 'zlepšení' },
     amber: { cls: 'rag-amber', icon: '●', label: 'beze změny' }, na: { cls: 'rag-na', icon: '–', label: 'bez srovnání' }
   };
-  var TABS = ['Denní TV', 'Přehled', 'Finální kontrola Prefix', 'Kontrola MC', 'Posouzení', 'Scrap', 'Data & metodika'];
+  var TABS = ['Domů', 'Přehled', 'Finální kontrola Prefix', 'Kontrola MC', 'Posouzení', 'Scrap', 'Data & metodika'];
 
-  var DB = emptyDb(), S = { tab: 0, period: 'week', span: 13, top: 'wo', day: null, tv: false, posScope: 'last', posTile: 'b' };
+  var DB = emptyDb(), S = { tab: 0, period: 'week', span: 13, top: 'wo', day: null, tv: false, posScope: 'last' };
   function emptyDb() { return { meta: { builtAt: null, savedAt: null }, qc: { checked: [], defects: [] }, mc: { checked: [], defects: [] }, pos: [], rework: [], scrap: [], sources: [], warnings: [] }; }
 
   /* ---------- období ---------- */
@@ -114,7 +114,7 @@
   function cmpLabel(lt) { return lt.last ? plabelLong(lt.last) + (lt.last === nowKey() ? ' (rozdělané)' : '') + (lt.prev ? ' vs ' + plabelLong(lt.prev) : '') : ''; }
 
 
-  /* ---------- 0 · Denní TV: dlaždice per zdroj, poslední den s daty vs předchozí den ---------- */
+  /* ---------- 0 · Domů: rozcestník z dlaždic — jedno číslo, semafor, kontext, mini trend; klik = detail ---------- */
   function daysOf(rows) { var set = {}, i; for (i = 0; i < rows.length; i++) set[rows[i].d] = 1; return Object.keys(set).sort(); }
   function pickDay(days) { // S.day = konkrétní den, jinak poslední den s daty daného zdroje
     if (!days.length) return { day: null, prev: null };
@@ -133,142 +133,83 @@
     var top = Object.keys(cnt).sort(function (a, b) { return cnt[b] - cnt[a]; }).slice(0, 3).map(function (k) { return { defect: k, n: cnt[k], rate: pct(cnt[k], c) }; });
     return { checked: c, defects: def, dpu: pct(def, c), posud: pos, posudPct: pct(pos, c), nok: hasNok ? nok : null, nokPct: hasNok ? pct(nok, c) : null, top: top };
   }
-  function tile(o) { // o: {title, color, day, prev, main:{label,value,unit,rag}, rows:[[label,value,rag]], top:[{label,value}], spark:{labels,values,name}, empty}
-    var R = o.main && o.main.rag ? RAG[o.main.rag.status] : null, h = '<div class="tile" style="border-top-color:' + (o.color || COL.gray) + '">';
-    h += '<div class="tile-h"><span>' + esc(o.title) + '</span><span class="tile-d">' + (o.day ? dowLabel(o.day) + (o.prev ? ' <i>vs ' + dlabel(o.prev) + '</i>' : '') : '') + '</span></div>';
-    if (o.empty) return h + '<div class="tile-empty">' + o.empty + '</div></div>';
-    if (o.main) h += '<div class="tile-main"><div class="tile-l">' + esc(o.main.label) + '</div><div class="tile-v">' + esc(o.main.value) + '<span class="ku">' + esc(o.main.unit || '') + '</span></div>' +
-      (R ? '<span class="rag ' + R.cls + '">' + R.icon + ' ' + esc(o.main.rag.text) + '</span>' : '') + (o.mainNote ? '<span class="ks">' + esc(o.mainNote) + '</span>' : '') + '</div>';
-    if (o.html) h += o.html;
-    if (o.rows && o.rows.length) h += '<div class="tile-rows">' + o.rows.map(function (r) { var RR = r[2] ? RAG[r[2].status] : null; return '<div><span>' + esc(r[0]) + '</span><b class="num">' + esc(r[1]) + '</b>' + (RR ? '<span class="rag ' + RR.cls + '">' + RR.icon + ' ' + esc(r[2].text) + '</span>' : '<span></span>') + '</div>'; }).join('') + '</div>';
-    if (o.top && o.top.length) h += '<div class="tile-top"><div class="tile-l">' + esc(o.topTitle || 'Top 3 dnes') + '</div>' + o.top.map(function (t, i) { return '<div><span class="tile-rank">' + (i + 1) + '</span><span class="tile-name">' + esc(t.label) + '</span><b class="num">' + esc(t.value) + '</b></div>'; }).join('') + '</div>';
-    if (o.spark && o.spark.labels.length > 1) h += '<div class="tile-l">' + esc(o.spark.name) + ' · posledních ' + o.spark.labels.length + ' dnů</div>' + defChart(o.id + '-sp', function (w) {
-      var ser = [{ name: o.spark.name, color: o.color, type: o.spark.type || 'line', values: o.spark.values }];
-      if (o.spark.extra) ser.push({ name: o.spark.extra.name, color: o.spark.extra.color, type: 'bar', values: o.spark.extra.values });
-      return C.xyChart({ width: w, height: S.tv ? 58 : 80, mini: true, labels: o.spark.labels.map(dlabel), series: ser, stacked: !!o.spark.extra, dec: o.spark.dec || 0, unit: o.spark.unit || '' });
-    }, 80);
-    return h + '</div>';
-  }
-
-  /* ---------- Posouzení: data pro denní dlaždici ---------- */
   var isSupplier = function (code) { return /^KR/.test(code || ''); }; // Kragujevac = dodavatel kůže (KRSK, KRSS, KRSW)
-  function posDay(src) {
-    var rows = src ? DB.pos.filter(function (r) { return r.src === src; }) : DB.pos, days = daysOf(rows), pd = pickDay(days);
-    if (!pd.day) return { day: null, rows: rows };
-    var cnt = sumBy(rows, function (r) { return r.d; }), today = rows.filter(function (r) { return r.d === pd.day; }), prevN = pd.prev ? cnt[pd.prev] : null;
-    var sp = last10(days, pd.day), avg10 = sp.length ? sp.reduce(function (a, d) { return a + cnt[d]; }, 0) / sp.length : null;
-    var wk = P.isoWeek(P.toDate(pd.day)), wtd = rows.filter(function (r) { return r.w === wk && r.d <= pd.day; }).length;
-    var pa = paretoOf(today), byV = sumBy(today, function (r) { return r.variant; }), topV = Object.keys(byV).sort(function (a, b) { return byV[b] - byV[a]; })[0];
-    var sup = today.filter(function (r) { return isSupplier(r.code); }).length, supPrev = pd.prev ? rows.filter(function (r) { return r.d === pd.prev && isSupplier(r.code); }).length : null;
-    return { day: pd.day, prev: pd.prev, rows: rows, today: today, n: today.length, prevN: prevN, cnt: cnt, sp: sp, avg10: avg10, wk: wk, wtd: wtd, pareto: pa, byV: byV, topV: topV, sup: sup, proc: today.length - sup, supPrev: supPrev, procPrev: prevN != null ? prevN - supPrev : null };
+  // Dlaždice: {id, title, color, tab, day, prev, label, value, unit, rag, note, spark:{labels, values, type, dec, unit}, empty}
+  function tile(o) {
+    var h = '<a class="tile" href="#tab=' + o.tab + '" data-tab-link="' + o.tab + '" style="border-top-color:' + (o.color || COL.gray) + '">';
+    h += '<div class="tile-h"><span>' + esc(o.title) + '</span><span class="tile-d">' + (o.day ? dowLabel(o.day) : '') + '</span></div>';
+    if (o.empty) return h + '<div class="tile-empty">' + o.empty + '</div><div class="tile-go">Detail ›</div></a>';
+    var R = o.rag ? RAG[o.rag.status] : null;
+    h += '<div class="tile-l">' + esc(o.label) + '</div>';
+    h += '<div class="tile-main"><div class="tile-v">' + esc(o.value) + '<span class="ku">' + esc(o.unit || '') + '</span></div>' +
+      (R ? '<span class="rag ' + R.cls + '">' + R.icon + ' ' + esc(o.rag.text) + '</span>' + (o.prev ? '<span class="ks">vs ' + dlabel(o.prev) + '</span>' : '') : '') + '</div>';
+    if (o.note) h += '<div class="tile-note">' + o.note + '</div>';
+    if (o.spark && o.spark.labels.length > 1) h += defChart(o.id + '-sp', function (w) {
+      return C.xyChart({ width: w, height: S.tv ? 150 : 72, mini: true, labels: o.spark.labels.map(dlabel), series: [{ name: o.spark.name || o.label, color: o.color, type: o.spark.type || 'line', values: o.spark.values }], dec: o.spark.dec || 0, unit: o.spark.unit || '' });
+    }, S.tv ? 150 : 72);
+    return h + '<div class="tile-go">Detail ›</div></a>';
   }
-  function miniBars(items, total, color, max) { // kompaktní Pareto lišty uvnitř dlaždice
-    var mx = max || Math.max.apply(null, items.map(function (x) { return x.n; }).concat([1]));
-    return '<div class="mbars">' + items.map(function (x) {
-      return '<div><span class="mb-l" title="' + esc(x.desc) + '"><b>' + esc(x.code) + '</b> ' + esc(x.desc) + '</span><span class="mb-b"><i style="width:' + (100 * x.n / mx).toFixed(0) + '%;background:' + color + '"></i></span><span class="mb-v num">' + fmt(x.n) + ' <em>' + fmt(pct(x.n, total), 0) + ' %</em></span></div>';
-    }).join('') + '</div>';
-  }
-  var posEmpty = function (src, cur, rows) { return tile({ id: 'd-pos-' + (src || 'ALL'), title: 'Posouzení ' + (src || 'MC'), color: src ? SRC_COL[src] : COL.s7, day: null, empty: rows.length ? 'bez dat k ' + dlabel(cur) : 'bez dat (nahraj ArchivPosouzeni)' }); };
-  // Varianta A: jedna dlaždice PREFIX + SKLAD (šetří místo, srovnání zdrojů vedle sebe)
-  function posTileA() {
-    var P1 = posDay('PREFIX'), P2 = posDay('SKLAD'), cur = S.day || (daysOf(DB.pos).pop());
-    if (!P1.day && !P2.day) return posEmpty(null, cur, DB.pos);
-    var day = [P1.day, P2.day].filter(Boolean).sort().pop(), all = DB.pos.filter(function (r) { return r.d === day; }), pa = paretoOf(all), top = pa.items.slice(0, 4);
-    var col = function (src, X) {
-      var R = RAG[(X.day ? ragRel(X.n, X.prevN, 25, 5) : { status: 'na' }).status], rg = X.day ? ragRel(X.n, X.prevN, 25, 5) : null;
-      return '<div class="tsplit-c" style="border-left-color:' + SRC_COL[src] + '"><div class="tile-l">' + src + ' · ' + (X.day ? dowLabel(X.day) : '–') + '</div><div class="tile-v">' + fmt(X.n || 0) + '<span class="ku">ks</span></div>' + (rg ? '<span class="rag ' + R.cls + '">' + R.icon + ' ' + esc(rg.text) + '</span>' : '') + '<div class="ks">Ø ' + fmt(X.avg10, 0) + '/den · ' + (X.wk ? X.wk.replace(/^\d+-/, '') : '') + ' ' + fmt(X.wtd) + '</div></div>';
-    };
-    var sp = last10(daysOf(DB.pos), day), cP = P1.cnt || {}, cS = P2.cnt || {};
-    return tile({ id: 'd-pos-ALL', title: 'Posouzení MC · PREFIX + SKLAD', color: COL.s7, day: day, prev: null,
-      html: '<div class="tsplit">' + col('PREFIX', P1) + col('SKLAD', P2) + '</div><div class="tile-l">Top 4 kódy dnes (oba zdroje, ' + fmt(all.length) + ' MC)</div>' + miniBars(top, all.length, COL.s7),
-      spark: { name: 'MC na posouzení PREFIX + SKLAD', labels: sp, values: sp.map(function (d) { return (cP[d] || 0) + (cS[d] || 0); }), type: 'bar' } });
-  }
-  // Varianta B: dvě dlaždice, Pareto top 5 uvnitř + kontext (Ø 10 dnů, týden zatím, dodavatel)
-  function posTileB(src) {
-    var X = posDay(src), cur = S.day || (daysOf(DB.pos).pop());
-    if (!X.day) return posEmpty(src, cur, X.rows);
-    return tile({ id: 'd-pos-' + src, title: 'Posouzení ' + src, color: SRC_COL[src], day: X.day, prev: X.prev,
-      main: { label: 'MC na posouzení', value: fmt(X.n), unit: 'ks', rag: ragRel(X.n, X.prevN, 25, 5) }, mainNote: 'Ø 10 dnů ' + fmt(X.avg10, 0) + ' · ' + X.wk.replace(/^\d+-/, '') + ' zatím ' + fmt(X.wtd),
-      html: '<div class="tile-l">Top 5 kódů dnes</div>' + miniBars(X.pareto.items.slice(0, 5), X.n, SRC_COL[src]),
-      rows: [['Dodavatel (Kragujevac)', fmt(X.sup) + ' ks (' + fmt(pct(X.sup, X.n), 0) + ' %)', null], ['Nejvíc varianta', X.topV ? X.topV + ' ' + fmt(X.byV[X.topV]) + ' ks (' + fmt(pct(X.byV[X.topV], X.n), 0) + ' %)' : '–', null]],
-      spark: { name: 'MC na posouzení', labels: X.sp, values: X.sp.map(function (d) { return X.cnt[d] || 0; }), type: 'bar' } });
-  }
-  // Varianta C: dvě dlaždice zaměřené na akci — dodavatel vs proces, top 3 procesní kódy
-  function posTileC(src) {
-    var X = posDay(src), cur = S.day || (daysOf(DB.pos).pop());
-    if (!X.day) return posEmpty(src, cur, X.rows);
-    var proc = X.pareto.items.filter(function (x) { return !isSupplier(x.code); }).slice(0, 3);
-    var sub = function (label, n, prevN, color) { var rg = ragRel(n, prevN, 25, 5), R = RAG[rg.status]; return '<div class="tsplit-c" style="border-left-color:' + color + '"><div class="tile-l">' + label + '</div><div class="tile-v2">' + fmt(n) + '<span class="ku">ks · ' + fmt(pct(n, X.n), 0) + ' %</span></div><span class="rag ' + R.cls + '">' + R.icon + ' ' + esc(rg.text) + '</span></div>'; };
-    var supD = X.sp.map(function (d) { return X.rows.filter(function (r) { return r.d === d && isSupplier(r.code); }).length; });
-    return tile({ id: 'd-pos-' + src, title: 'Posouzení ' + src, color: SRC_COL[src], day: X.day, prev: X.prev,
-      main: { label: 'MC na posouzení', value: fmt(X.n), unit: 'ks', rag: ragRel(X.n, X.prevN, 25, 5) }, mainNote: 'Ø 10 dnů ' + fmt(X.avg10, 0),
-      html: '<div class="tsplit">' + sub('Proces (naše)', X.proc, X.procPrev, SRC_COL[src]) + sub('Dodavatel (Kragujevac)', X.sup, X.supPrev, COL.gray) + '</div><div class="tile-l">Top 3 procesní kódy dnes</div>' + miniBars(proc, X.n, SRC_COL[src]),
-      rows: [['Nejvíc varianta', X.topV ? X.topV + ' ' + fmt(X.byV[X.topV]) + ' ks (' + fmt(pct(X.byV[X.topV], X.n), 0) + ' %)' : '–', null]],
-      spark: { name: 'Proces vs dodavatel', labels: X.sp, values: X.sp.map(function (d, i) { return (X.cnt[d] || 0) - supD[i]; }), type: 'bar', extra: { name: 'Dodavatel', color: COL.gray, values: supD } } });
-  }
-
-  function viewDaily() {
-    var h = '', tiles = [], allDays = daysOf([].concat(DB.qc.checked, DB.mc.checked, DB.pos, DB.rework, DB.scrap));
+  function viewHome() {
+    var tiles = [], allDays = daysOf([].concat(DB.qc.checked, DB.mc.checked, DB.pos, DB.rework, DB.scrap));
     if (!allDays.length) return empty('Žádná data. Nahraj soubory v záložce <b>Data &amp; metodika</b>.');
-    var cur = S.day || allDays[allDays.length - 1], ci = allDays.indexOf(cur);
-    h += '<div class="daynav"><button class="btn" data-day="' + esc(ci > 0 ? allDays[ci - 1] : '') + '"' + (ci > 0 ? '' : ' disabled') + '>◀</button>' +
-      '<input type="date" class="inp" id="dayPick" value="' + esc(cur) + '" min="' + allDays[0] + '" max="' + allDays[allDays.length - 1] + '">' +
-      '<button class="btn" data-day="' + esc(ci < allDays.length - 1 ? allDays[ci + 1] : '') + '"' + (ci < allDays.length - 1 ? '' : ' disabled') + '>▶</button>' +
-      '<button class="btn' + (S.day ? '' : ' on') + '" data-day="latest">poslední den s daty</button>' +
-      '<span class="muted">' + (S.day ? 'Zobrazen den ' + dowLabel(S.day) + ' — zdroj bez dat k tomuto dni ukáže „bez dat“.' : 'Každá dlaždice ukazuje poslední den, ke kterému má daný zdroj data.') + '</span>' +
-      '<span class="muted" style="margin-left:auto">Dlaždice Posouzení:</span><span class="seg">' + ['a', 'b', 'c'].map(function (v) { return '<button data-postile="' + v + '"' + (S.posTile === v ? ' class="on"' : '') + '>' + ({ a: 'A · společná', b: 'B · Pareto', c: 'C · proces vs dodavatel' })[v] + '</button>'; }).join('') + '</span>' +
-      '<a class="btn tvlink" href="#tab=0&tv" title="Režim pro TV: bez lišt, hodiny, obnovení každých 15 min">📺 TV režim</a></div>';
-    // --- Finální kontrola Prefix: L1 a L2 odděleně ---
+    var cur = S.day || allDays[allDays.length - 1];
+    var noData = function (rows, what) { return rows.length ? 'bez dat k ' + dlabel(cur) : 'bez dat · ' + what; };
+    // Finální kontrola Prefix: L1 a L2 odděleně
     [1, 2].forEach(function (line) {
       var f = function (r) { return r.line === line; }, chk = DB.qc.checked.filter(f), days = daysOf(chk), pd = pickDay(days);
-      var a = pd.day ? ctrlStats(DB.qc.checked, DB.qc.defects, f, pd.day) : null, b = pd.prev ? ctrlStats(DB.qc.checked, DB.qc.defects, f, pd.prev) : null;
-      if (!a) { tiles.push(tile({ id: 'd-l' + line, title: 'Finální kontrola · Linka ' + line, color: LINE_COL[line], day: pd.day, empty: chk.length ? 'bez dat k ' + dlabel(cur) : 'bez dat (nahraj report CZ25170)' })); return; }
-      var sp = last10(days, pd.day);
-      tiles.push(tile({ id: 'd-l' + line, title: 'Finální kontrola · Linka ' + line, color: LINE_COL[line], day: pd.day, prev: pd.prev,
-        main: { label: 'Vad na 100 ks', value: fmt(a.dpu, 0), rag: ragPP(a.dpu, b ? b.dpu : null, 10) },
-        rows: [['Kontrolováno', fmt(a.checked) + ' ks', ragRel(a.checked, b ? b.checked : null, 25, 5)], ['Vad celkem', fmt(a.defects) + ' ks', null], ['Na posouzení', fmt(a.posudPct, 1) + ' % (' + fmt(a.posud) + ' ks)', ragPP(a.posudPct, b ? b.posudPct : null, 2)]],
-        top: a.top.map(function (t) { return { label: t.defect, value: fmt(t.rate, 0) + ' %' }; }), topTitle: 'Top 3 vady dnes (% z kontrolovaných)',
-        spark: { name: 'Vad na 100 ks', labels: sp, values: sp.map(function (d) { var x = ctrlStats(DB.qc.checked, DB.qc.defects, f, d); return x ? x.dpu : null; }) } }));
+      var a = pd.day ? ctrlStats(DB.qc.checked, DB.qc.defects, f, pd.day) : null, b = pd.prev ? ctrlStats(DB.qc.checked, DB.qc.defects, f, pd.prev) : null, sp = last10(days, pd.day);
+      tiles.push(tile({ id: 'h-l' + line, tab: 2, title: 'Finální kontrola · Linka ' + line, color: LINE_COL[line], day: pd.day, prev: pd.prev, empty: a ? null : noData(chk, 'report CZ25170'),
+        label: 'Vad na 100 ks', value: a ? fmt(a.dpu, 0) : '', rag: a ? ragPP(a.dpu, b ? b.dpu : null, 10) : null,
+        note: a ? 'kontrolováno <b class="num">' + fmt(a.checked) + ' ks</b> · na posouzení <b class="num">' + fmt(a.posudPct, 1) + ' %</b> · nejčastěji ' + esc(a.top[0] ? a.top[0].defect : '–') : '',
+        spark: { labels: sp, values: sp.map(function (d) { var x = ctrlStats(DB.qc.checked, DB.qc.defects, f, d); return x ? x.dpu : null; }) } }));
     });
-    // --- Kontrola MC ---
+    // Kontrola MC
     (function () {
-      var days = daysOf(DB.mc.checked), pd = pickDay(days), a = pd.day ? ctrlStats(DB.mc.checked, DB.mc.defects, null, pd.day) : null, b = pd.prev ? ctrlStats(DB.mc.checked, DB.mc.defects, null, pd.prev) : null;
-      if (!a) { tiles.push(tile({ id: 'd-mc', title: 'Kontrola MC', color: COL.s3, day: pd.day, empty: DB.mc.checked.length ? 'bez dat k ' + dlabel(cur) : 'bez dat (nahraj report CZ26027)' })); return; }
-      var sp = last10(days, pd.day), worst = null;
-      P.VARIANTS.forEach(function (v) { var x = ctrlStats(DB.mc.checked, DB.mc.defects, function (r) { return r.variant === v; }, pd.day); if (x && x.nok && (!worst || x.nokPct > worst.nokPct)) worst = { v: v, nokPct: x.nokPct, nok: x.nok }; });
-      tiles.push(tile({ id: 'd-mc', title: 'Kontrola MC', color: COL.s3, day: pd.day, prev: pd.prev,
-        main: { label: 'NOK po posouzení', value: fmt(a.nokPct, 1), unit: '%', rag: ragPP(a.nokPct, b ? b.nokPct : null, 2) },
-        rows: [['Kontrolováno', fmt(a.checked) + ' ks', ragRel(a.checked, b ? b.checked : null, 25, 5)], ['Vad na 100 ks', fmt(a.dpu, 0), ragPP(a.dpu, b ? b.dpu : null, 10)], ['Na posouzení', fmt(a.posudPct, 1) + ' % (' + fmt(a.posud) + ' ks)', ragPP(a.posudPct, b ? b.posudPct : null, 2)], ['NOK ks', fmt(a.nok) + (worst ? ' · nejhorší ' + worst.v + ' ' + fmt(worst.nokPct, 1) + ' %' : ''), null]],
-        top: a.top.map(function (t) { return { label: t.defect, value: fmt(t.rate, 0) + ' %' }; }), topTitle: 'Top 3 vady dnes (% z kontrolovaných)',
-        spark: { name: 'NOK %', labels: sp, values: sp.map(function (d) { var x = ctrlStats(DB.mc.checked, DB.mc.defects, null, d); return x ? x.nokPct : null; }), dec: 1, unit: ' %' } }));
+      var days = daysOf(DB.mc.checked), pd = pickDay(days), a = pd.day ? ctrlStats(DB.mc.checked, DB.mc.defects, null, pd.day) : null, b = pd.prev ? ctrlStats(DB.mc.checked, DB.mc.defects, null, pd.prev) : null, sp = last10(days, pd.day);
+      tiles.push(tile({ id: 'h-mc', tab: 3, title: 'Kontrola MC', color: COL.s3, day: pd.day, prev: pd.prev, empty: a ? null : noData(DB.mc.checked, 'report CZ26027'),
+        label: 'NOK po posouzení', value: a ? fmt(a.nokPct, 1) : '', unit: '%', rag: a ? ragPP(a.nokPct, b ? b.nokPct : null, 2) : null,
+        note: a ? 'kontrolováno <b class="num">' + fmt(a.checked) + ' ks</b> · na posouzení <b class="num">' + fmt(a.posudPct, 1) + ' %</b> · NOK <b class="num">' + fmt(a.nok) + ' ks</b>' : '',
+        spark: { labels: sp, values: sp.map(function (d) { var x = ctrlStats(DB.mc.checked, DB.mc.defects, null, d); return x ? x.nokPct : null; }), dec: 1, unit: ' %' } }));
     })();
-    // --- Posouzení PREFIX / SKLAD: tři varianty dlaždice (S.posTile a|b|c) ---
-    if (S.posTile === 'a') tiles.push(posTileA()); else ['PREFIX', 'SKLAD'].forEach(function (src) { tiles.push(S.posTile === 'c' ? posTileC(src) : posTileB(src)); });
-    // --- Sklad → rework ---
+    // Posouzení PREFIX / SKLAD
+    ['PREFIX', 'SKLAD'].forEach(function (src) {
+      var rows = DB.pos.filter(function (r) { return r.src === src; }), days = daysOf(rows), pd = pickDay(days), cnt = sumBy(rows, function (r) { return r.d; });
+      var today = pd.day ? rows.filter(function (r) { return r.d === pd.day; }) : [], sp = last10(days, pd.day), pa = paretoOf(today), sup = today.filter(function (r) { return isSupplier(r.code); }).length;
+      var avg = sp.length ? sp.reduce(function (a, d) { return a + cnt[d]; }, 0) / sp.length : null;
+      tiles.push(tile({ id: 'h-pos-' + src, tab: 4, title: 'Posouzení ' + src, color: SRC_COL[src], day: pd.day, prev: pd.prev, empty: pd.day ? null : noData(rows, 'ArchivPosouzeni'),
+        label: 'MC na posouzení', value: fmt(today.length), unit: 'ks', rag: pd.day ? ragRel(today.length, pd.prev ? cnt[pd.prev] : null, 25, 5) : null,
+        note: pd.day ? 'Ø 10 dnů <b class="num">' + fmt(avg, 0) + '</b> · dodavatel <b class="num">' + fmt(pct(sup, today.length), 0) + ' %</b> · nejčastěji ' + esc(pa.items[0] ? pa.items[0].code + ' ' + pa.items[0].desc : '–') : '',
+        spark: { labels: sp, values: sp.map(function (d) { return cnt[d] || 0; }), type: 'bar' } }));
+    });
+    // Sklad → rework
     (function () {
-      var days = daysOf(DB.rework), pd = pickDay(days);
-      if (!pd.day) { tiles.push(tile({ id: 'd-rw', title: 'Sklad → rework', color: COL.s7, empty: DB.rework.length ? 'bez dat k ' + dlabel(cur) : 'bez dat (list Sklad - na rework)' })); return; }
-      var today = DB.rework.filter(function (r) { return r.d === pd.day; }), prevN = pd.prev ? DB.rework.filter(function (r) { return r.d === pd.prev; }).length : null;
-      var byV = sumBy(today, function (r) { return r.variant; }), sp = last10(days, pd.day), cnt = sumBy(DB.rework, function (r) { return r.d; });
-      tiles.push(tile({ id: 'd-rw', title: 'Sklad → rework', color: COL.s7, day: pd.day, prev: pd.prev,
-        main: { label: 'MC na rework', value: fmt(today.length), unit: 'ks', rag: ragRel(today.length, prevN, 25, 5) },
-        top: Object.keys(byV).sort(function (a, b) { return byV[b] - byV[a]; }).slice(0, 3).map(function (v) { return { label: v, value: fmt(byV[v]) + ' ks' }; }), topTitle: 'Podle varianty dnes',
-        spark: { name: 'MC na rework', labels: sp, values: sp.map(function (d) { return cnt[d] || 0; }), type: 'bar' } }));
+      var days = daysOf(DB.rework), pd = pickDay(days), cnt = sumBy(DB.rework, function (r) { return r.d; }), sp = last10(days, pd.day);
+      var today = pd.day ? DB.rework.filter(function (r) { return r.d === pd.day; }) : [], byV = sumBy(today, function (r) { return r.variant; }), topV = Object.keys(byV).sort(function (a, b) { return byV[b] - byV[a]; })[0];
+      tiles.push(tile({ id: 'h-rw', tab: 4, title: 'Sklad → rework', color: COL.s7, day: pd.day, prev: pd.prev, empty: pd.day ? null : noData(DB.rework, 'list Sklad - na rework'),
+        label: 'MC na rework', value: fmt(today.length), unit: 'ks', rag: pd.day ? ragRel(today.length, pd.prev ? cnt[pd.prev] : null, 25, 5) : null,
+        note: topV ? 'nejvíc <b>' + esc(topV) + '</b> <b class="num">' + fmt(byV[topV]) + ' ks</b>' : '',
+        spark: { labels: sp, values: sp.map(function (d) { return cnt[d] || 0; }), type: 'bar' } }));
     })();
-    // --- Scrap ---
+    // Scrap
     (function () {
-      var inc = DB.scrap.filter(function (r) { return !r.excluded; }), days = daysOf(inc), pd = pickDay(days);
-      if (!pd.day) { tiles.push(tile({ id: 'd-sc', title: 'Scrap PCO001', color: COL.s8, empty: inc.length ? 'bez dat k ' + dlabel(cur) : 'bez dat — nahraj QAD export (list Data QAD)' })); return; }
-      var eurD = function (d, wo) { return inc.filter(function (r) { return r.d === d && (!wo || !r.test); }).reduce(function (a, r) { return a + r.eur; }, 0); };
-      var today = inc.filter(function (r) { return r.d === pd.day && !r.test; }), byR = sumBy(today, function (r) { return r.reason; }, function (r) { return r.eur; }), descOf = {}; today.forEach(function (r) { descOf[r.reason] = r.desc; });
-      var sp = last10(days, pd.day), wo = eurD(pd.day, true), wt = eurD(pd.day, false);
-      tiles.push(tile({ id: 'd-sc', title: 'Scrap PCO001', color: COL.s8, day: pd.day, prev: pd.prev,
-        main: { label: 'Scrap w/o tests', value: fmt(wo), unit: 'EUR', rag: ragRel(wo, pd.prev ? eurD(pd.prev, true) : null, 25, 50) },
-        rows: [['With tests', fmt(wt) + ' EUR', null], ['Transakce', fmt(today.length) + ' ks · ' + fmt(today.reduce(function (a, r) { return a + Math.abs(r.qty || 0); }, 0)) + ' dílů', null]].concat((function () { var bv = sumBy(today, function (r) { return r.variant; }, function (r) { return r.eur; }); return Object.keys(bv).sort(function (a, b) { return bv[b] - bv[a]; }).slice(0, 1).map(function (v) { return ['Nejvíc: ' + v, fmt(bv[v]) + ' EUR (' + fmt(pct(bv[v], wo), 0) + ' %)', null]; }); })()),
-        top: Object.keys(byR).sort(function (a, b) { return byR[b] - byR[a]; }).slice(0, 3).map(function (r) { return { label: r + ' · ' + (descOf[r] || ''), value: fmt(byR[r]) + ' EUR' }; }), topTitle: 'Top 3 reason dnes',
-        spark: { name: 'EUR w/o tests', labels: sp, values: sp.map(function (d) { return eurD(d, true); }), type: 'bar' } }));
+      var inc = DB.scrap.filter(function (r) { return !r.excluded; }), days = daysOf(inc), pd = pickDay(days), sp = last10(days, pd.day);
+      var eurD = function (d) { return inc.filter(function (r) { return r.d === d && !r.test; }).reduce(function (a, r) { return a + r.eur; }, 0); };
+      var today = pd.day ? inc.filter(function (r) { return r.d === pd.day && !r.test; }) : [], byR = sumBy(today, function (r) { return r.reason; }, function (r) { return r.eur; }), topR = Object.keys(byR).sort(function (a, b) { return byR[b] - byR[a]; })[0], descOf = {}; today.forEach(function (r) { descOf[r.reason] = r.desc; });
+      tiles.push(tile({ id: 'h-sc', tab: 5, title: 'Scrap PCO001', color: COL.s8, day: pd.day, prev: pd.prev, empty: pd.day ? null : (inc.length ? 'bez dat k ' + dlabel(cur) : 'bez dat · QAD export'),
+        label: 'Scrap w/o tests', value: fmt(eurD(pd.day)), unit: 'EUR', rag: pd.day ? ragRel(eurD(pd.day), pd.prev ? eurD(pd.prev) : null, 25, 50) : null,
+        note: pd.day ? '<b class="num">' + fmt(today.length) + '</b> transakcí · nejvíc ' + esc(topR ? topR + ' ' + (descOf[topR] || '') : '–') + ' <b class="num">' + fmt(byR[topR] || 0) + ' EUR</b>' : '',
+        spark: { labels: sp, values: sp.map(eurD), type: 'bar' } }));
     })();
-    return h + '<div class="tiles">' + tiles.join('') + '</div>';
+    return '<div class="tiles">' + tiles.join('') + '</div>';
+  }
+  function homeBar() { // ovládání dne pro Domů (nahrazuje filtr období v horní liště)
+    var allDays = daysOf([].concat(DB.qc.checked, DB.mc.checked, DB.pos, DB.rework, DB.scrap)); if (!allDays.length) return '';
+    var cur = S.day || allDays[allDays.length - 1], ci = allDays.indexOf(cur);
+    return '<span>Den:</span><span class="seg"><button data-day="' + esc(ci > 0 ? allDays[ci - 1] : '') + '"' + (ci > 0 ? '' : ' disabled') + '>◀</button><button data-day="' + esc(ci < allDays.length - 1 ? allDays[ci + 1] : '') + '"' + (ci < allDays.length - 1 ? '' : ' disabled') + '>▶</button></span>' +
+      '<input type="date" class="inp" id="dayPick" value="' + esc(cur) + '" min="' + allDays[0] + '" max="' + allDays[allDays.length - 1] + '">' +
+      '<button class="btn' + (S.day ? '' : ' on') + '" data-day="latest">poslední den s daty</button>' +
+      '<span class="muted">' + (S.day ? 'zdroj bez dat k tomuto dni ukáže „bez dat“' : 'každá dlaždice ukazuje poslední den, ke kterému má daný zdroj data · klik = detail') + '</span>' +
+      '<a class="btn tvlink" href="#tab=0&tv" title="Bez lišt, hodiny, obnovení každých 15 min">📺 TV režim</a>';
   }
 
   /* ---------- 1 · Přehled ---------- */
@@ -542,7 +483,7 @@
   }
 
   /* ---------- render ---------- */
-  var VIEWS = [viewDaily, viewOverview, viewPrefix, viewMc, viewPos, viewScrap, viewData];
+  var VIEWS = [viewHome, viewOverview, viewPrefix, viewMc, viewPos, viewScrap, viewData];
   function render() {
     defectColors();
     CHARTS = {};
@@ -551,14 +492,17 @@
     drawCharts();
     var tabs = document.querySelectorAll('.tab'), i;
     for (i = 0; i < tabs.length; i++) tabs[i].classList.toggle('on', i === S.tab);
+    var sb = document.getElementById('sbar'), pf = document.getElementById('periodBar'), hb2 = document.getElementById('homeBar');
+    if (pf) pf.style.display = S.tab === 0 ? 'none' : ''; if (hb2) { hb2.style.display = S.tab === 0 ? '' : 'none'; hb2.innerHTML = S.tab === 0 ? homeBar() : ''; }
     document.querySelectorAll('[data-period]').forEach(function (b) { b.classList.toggle('on', b.getAttribute('data-period') === S.period); });
     document.querySelectorAll('[data-span]').forEach(function (b) { b.classList.toggle('on', +b.getAttribute('data-span') === S.span); });
     renderHeader();
     bindDrops();
     document.querySelectorAll('[data-day]').forEach(function (b) { b.onclick = function () { var v = b.getAttribute('data-day'); if (!v) return; S.day = v === 'latest' ? null : v; render(); }; });
+    document.querySelectorAll('[data-tab-link]').forEach(function (a) { a.onclick = function (e) { e.preventDefault(); S.tab = +a.getAttribute('data-tab-link'); location.hash = 'tab=' + S.tab; render(); window.scrollTo(0, 0); }; });
     var dp = document.getElementById('dayPick'); if (dp) dp.onchange = function () { S.day = dp.value || null; render(); };
     var psc = document.getElementById('posScope'); if (psc) psc.onchange = function () { S.posScope = psc.value; render(); };
-    document.querySelectorAll('[data-postile]').forEach(function (b) { b.onclick = function () { S.posTile = b.getAttribute('data-postile'); try { localStorage.setItem(LS_SET, JSON.stringify({ period: S.period, span: S.span, posTile: S.posTile })); } catch (e) { } render(); }; });
+    document.querySelectorAll('[data-postile]').forEach(function (b) { b.onclick = function () { S.posTile = b.getAttribute('data-postile'); try { localStorage.setItem(LS_SET, JSON.stringify({ period: S.period, span: S.span })); } catch (e) { } render(); }; });
   }
   function renderHeader() {
     var b = [], f = function (rows, name) { if (!rows.length) return; var d = rows.map(function (r) { return r.d; }).sort(); b.push('<span class="hbadge">' + name + ' do ' + esc(d[d.length - 1]) + '</span>'); };
@@ -669,10 +613,9 @@
   /* ---------- start ---------- */
   function init() {
     loadEmbedded(); loadLocal();
-    try { var st = JSON.parse(localStorage.getItem(LS_SET) || '{}'); if (st.period) S.period = st.period; if (st.span != null) S.span = st.span; if (st.posTile) S.posTile = st.posTile; } catch (e) { }
+    try { var st = JSON.parse(localStorage.getItem(LS_SET) || '{}'); if (st.period) S.period = st.period; if (st.span != null) S.span = st.span; } catch (e) { }
     var m = location.hash.match(/tab=(\d)/); if (m) S.tab = Math.min(TABS.length - 1, +m[1]);
     var mp = location.hash.match(/pos=([\w-]+)/); if (mp) S.posScope = mp[1];
-    var mt = location.hash.match(/posTile=([abc])/); if (mt) S.posTile = mt[1];
     S.tv = /(^|[#&])tv(=1)?($|&)/.test(location.hash);
     if (S.tv) { // TV režim: bez lišt, hodiny, obnovení každých 15 min (nová data z GitHub Pages / OneDrive)
       document.body.classList.add('tv');
@@ -686,7 +629,7 @@
     document.getElementById('sbar').onclick = function (e) {
       var b = e.target.closest('[data-period],[data-span]'); if (!b) return;
       if (b.hasAttribute('data-period')) S.period = b.getAttribute('data-period'); else S.span = +b.getAttribute('data-span');
-      try { localStorage.setItem(LS_SET, JSON.stringify({ period: S.period, span: S.span, posTile: S.posTile })); } catch (e2) { }
+      try { localStorage.setItem(LS_SET, JSON.stringify({ period: S.period, span: S.span })); } catch (e2) { }
       render();
     };
     var rt; window.addEventListener('resize', function () { clearTimeout(rt); rt = setTimeout(drawCharts, 150); });
