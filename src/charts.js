@@ -27,6 +27,7 @@ var G463Charts = (function () {
   function xyChart(o) {
     var W = o.width || 800, H = o.height || 260, padL = 56, padR = 20, padT = 14, padB = 36;
     if (o.mini) { padL = 6; padR = 44; padT = 8; padB = 18; }
+    if (o.allLabels && (o.labels || []).length && ((o.width || 800) - padL - padR) / o.labels.length < 46) padB = 58;
     var labels = o.labels || [], n = labels.length, series = o.series || [];
     var bars = series.filter(function (s) { return s.type !== 'line'; }), lines = series.filter(function (s) { return s.type === 'line'; });
     var fmt = o.fmt || function (v) { return fmtNum(v, o.dec || 0); };
@@ -46,9 +47,12 @@ var G463Charts = (function () {
       if (!o.mini) s += '<text x="' + (padL - 8) + '" y="' + (y(ticks[i]) + 4).toFixed(1) + '" text-anchor="end" font-size="12" font-family="' + MONO + '" fill="' + INK.muted + '">' + esc(fmt(ticks[i])) + '</text>';
     }
     // popisky X (řídce, aby se nepřekrývaly)
-    var every = Math.max(1, Math.ceil(n / Math.floor(w / 56)));
-    for (i = 0; i < n; i++) if (o.mini ? (i === 0 || i === n - 1) : (n - 1 - i) % every === 0)
-      s += '<text x="' + xc(i).toFixed(1) + '" y="' + (H - padB + (o.mini ? 13 : 18)) + '" text-anchor="' + (o.mini ? (i === 0 ? 'start' : 'end') : 'middle') + '" font-size="' + (o.mini ? 10 : 12) + '" fill="' + INK.secondary + '">' + esc(labels[i]) + '</text>';
+    var every = o.allLabels ? 1 : Math.max(1, Math.ceil(n / Math.floor(w / 56))), rot = o.allLabels && slot < 46;
+    for (i = 0; i < n; i++) if (o.mini ? (i === 0 || i === n - 1) : (n - 1 - i) % every === 0) {
+      var lx = xc(i).toFixed(1), ly = H - padB + (o.mini ? 13 : 18);
+      if (rot) s += '<text transform="translate(' + lx + ' ' + (H - padB + 6) + ') rotate(-45)" text-anchor="end" font-size="11" fill="' + INK.secondary + '">' + esc(labels[i]) + '</text>';
+      else s += '<text x="' + lx + '" y="' + ly + '" text-anchor="' + (o.mini ? (i === 0 ? 'start' : 'end') : 'middle') + '" font-size="' + (o.mini ? 10 : (slot < 60 ? 11 : 12)) + '" fill="' + INK.secondary + '">' + esc(labels[i]) + '</text>';
+    }
     // sloupce
     if (bars.length) {
       var groupW = Math.min(slot * 0.72, 64), nb = o.stacked ? 1 : bars.length, bw = groupW / nb;
@@ -62,9 +66,9 @@ var G463Charts = (function () {
           s += '<rect x="' + (x0 + 1).toFixed(1) + '" y="' + y1.toFixed(1) + '" width="' + Math.max(1, bw - 2).toFixed(1) + '" height="' + hh.toFixed(1) + '" rx="' + (o.stacked ? 0 : 3) + '" fill="' + bars[j].color + '"' + tip((o.tipLabels || labels)[i] + ' · ' + bars[j].name + ': ' + fmt(val) + (o.unit || '')) + '/>';
           acc += val;
         }
-        if (o.barLabels && n <= 16) {
+        if (o.barLabels && n <= 40) {
           var tot = o.stacked ? acc : Math.max.apply(null, bars.map(function (b) { return b.values[i] || 0; }));
-          if (tot > 0) s += '<text x="' + xc(i).toFixed(1) + '" y="' + (y(tot) - 5).toFixed(1) + '" text-anchor="middle" font-size="11" font-family="' + MONO + '" fill="' + INK.secondary + '">' + esc(fmt(tot)) + '</text>';
+          if (tot > 0) s += '<text x="' + xc(i).toFixed(1) + '" y="' + (y(tot) - 5).toFixed(1) + '" text-anchor="middle" font-size="' + (n > 16 ? 10 : 11) + '" font-family="' + MONO + '" fill="' + INK.secondary + '">' + esc(o.barLabelFn ? o.barLabelFn(i, tot) : fmt(tot)) + '</text>';
         }
       }
     }

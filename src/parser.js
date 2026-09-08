@@ -20,6 +20,8 @@ var G463Parser = (function () {
     'lepidlo pod kuzi': 'Lepidlo pod kůží',
     'ohn2+d3': 'OHN2'
   };
+  // list SKLAD má kód PSNA dvakrát (nástřih i zaříznutí); v PREFIX je zaříznutí PSZA -> sjednotit kód podle popisu
+  var POS_CODE_BY_DESC = { 'špatný zaříznutí': 'PSZA' };
   var SCRAP_DEFAULTS = { location: 'PCO001', txType: 'ISS-SCRP', testReason: '20' };
 
   /* ---------- pomocné ---------- */
@@ -178,7 +180,7 @@ var G463Parser = (function () {
       var code = str(codes[c]), desc = str(descs[c]);
       if (!code || /^_/.test(code) || !desc || /^M[ěe]s[íi]c$/i.test(desc) || /^Rok$/i.test(desc)) continue;
       var key = POS_ALIAS[desc.toLowerCase()] || desc;
-      cols.push({ c: c, code: POS_ALIAS[code.toLowerCase()] || code, desc: key });
+      cols.push({ c: c, code: POS_CODE_BY_DESC[key.toLowerCase()] || POS_ALIAS[code.toLowerCase()] || code, desc: key });
     }
     var out = [], r;
     for (r = hr + 2; r < rows.length; r++) {

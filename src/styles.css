@@ -102,3 +102,8 @@ body.tv .tile-rows>div,body.tv .tile-top>div{font-size:15px;padding:2px 0}
 body.tv .tile-top>div:not(.tile-l){padding:2px 0}
 body.tv .rag{font-size:13px}
 @media (max-width:1500px){body.tv .tiles{grid-template-columns:repeat(3,1fr)}}
+
+/* ---- Pareto tabulka ---- */
+table.pareto tr.hl td{background:#eef4fb}
+table.pareto tr.tot td{font-weight:bold;border-top:2px solid var(--axis,#c3c2b7)}
+select.inp{font:inherit;padding:7px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface)}

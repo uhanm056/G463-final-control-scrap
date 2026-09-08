@@ -58,6 +58,11 @@ Tohle jsou explicitní pravidla od uživatele, ověřená v praxi:
   (řádek "Kód vady" + popis, každý vyplněný PN = 1 MC), `Sklad - na rework`
   - Varianta z rodiny PN: MY0547099=HEAT. FRT RH, MY0547078=HEAT. FRT LH, 3448362=FRT RH,
     3448356=FRT LH, 3449523=RR RH, 3449518=RR LH (prefix "M" se ignoruje)
+  - Listy `Pareto PREFIX` / `Pareto SKLAD` jsou vzor pro záložku Posouzení (filtr období, pořadí,
+    % podíl, kumulativní %). POZOR: jejich vzorce berou jen řádky 6:205 (data do ~16./24. 7. 2026)
+    a seznam 35 kódů bez sloupců PSPS, PLPK2, PELC2, PDEP2… → Excel CELKEM 542/558 vs. skutečných
+    953/1045 (stav 7. 9. 2026). Dashboard počítá všechny řádky a všechny sloupce.
+  - List SKLAD má kód PSNA dvakrát (nástřih / zaříznutí) → zaříznutí se mapuje na PSZA jako v PREFIX.
 - **Scrap:** `scrap_QAD_*.xlsx`, list `Data QAD`, hlavičky `Transaction Number`, `Transaction Type`,
   `Date`, `Location`, `Reason`, `Description reason`, `Group 2`, `Excluded?`, `EUR`
   - Filter: Location == 'PCO001', Transaction Type == 'ISS-SCRP', EUR > 0, dedup přes Transaction Number

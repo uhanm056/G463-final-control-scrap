@@ -13,7 +13,7 @@
   };
   var TABS = ['Denní TV', 'Přehled', 'Finální kontrola Prefix', 'Kontrola MC', 'Posouzení', 'Scrap', 'Data & metodika'];
 
-  var DB = emptyDb(), S = { tab: 0, period: 'week', span: 13, top: 'wo', day: null, tv: false };
+  var DB = emptyDb(), S = { tab: 0, period: 'week', span: 13, top: 'wo', day: null, tv: false, posScope: 'last' };
   function emptyDb() { return { meta: { builtAt: null, savedAt: null }, qc: { checked: [], defects: [] }, mc: { checked: [], defects: [] }, pos: [], rework: [], scrap: [], sources: [], warnings: [] }; }
 
   /* ---------- období ---------- */
@@ -326,39 +326,74 @@
     return h;
   }
 
-  /* ---------- 3 · Posouzení (archiv) ---------- */
+  /* ---------- 3 · Posouzení (archiv) — vzor: listy "Pareto PREFIX" / "Pareto SKLAD" ---------- */
+  function posScopeRows(rows) { // S.posScope: 'last' = poslední období zdroje, 'all' = vše, jinak klíč období
+    if (S.posScope === 'all') return { rows: rows, label: 'vše (' + (rows.length ? rows.map(function (r) { return r.d; }).sort()[0] + ' → ' + rows.map(function (r) { return r.d; }).sort().pop() : '–') + ')', key: null, prevKey: null };
+    var lt = lastTwo(rows), key = S.posScope === 'last' ? lt.last : S.posScope;
+    var keys = Object.keys(sumBy(rows, pk)).sort(), i = keys.indexOf(key), prevKey = i > 0 ? keys[i - 1] : null;
+    return { rows: rows.filter(function (r) { return pk(r) === key; }), label: key ? plabelLong(key) + (key === nowKey() ? ' (rozdělané)' : '') : '–', key: key, prevKey: prevKey, prevRows: prevKey ? rows.filter(function (r) { return pk(r) === prevKey; }) : [] };
+  }
+  function paretoOf(rows) { // {items:[{code,desc,n,share,cum}], total}
+    var byC = sumBy(rows, function (r) { return r.desc; }), codeOf = {}; rows.forEach(function (r) { codeOf[r.desc] = r.code; });
+    var total = rows.length, cum = 0;
+    var items = Object.keys(byC).sort(function (a, b) { return byC[b] - byC[a] || a.localeCompare(b); }).map(function (d) { cum += byC[d]; return { code: codeOf[d], desc: d, n: byC[d], share: pct(byC[d], total), cum: pct(cum, total) }; });
+    return { items: items, total: total };
+  }
+  function paretoPanel(src) {
+    var rows = DB.pos.filter(function (r) { return r.src === src; }), sc = posScopeRows(rows), pa = paretoOf(sc.rows);
+    var prev = sc.prevRows ? sumBy(sc.prevRows, function (r) { return r.desc; }) : null;
+    var chartH = 300, top = pa.items.slice(0, 20), rest = pa.items.slice(20), restN = rest.reduce(function (a, x) { return a + x.n; }, 0);
+    var labels = top.map(function (x) { return x.code; }).concat(restN ? ['ost.'] : []);
+    var shares = top.map(function (x) { return x.share; }).concat(restN ? [pct(restN, pa.total)] : []);
+    var cums = top.map(function (x) { return x.cum; }).concat(restN ? [100] : []), counts = top.map(function (x) { return x.n; }).concat(restN ? [restN] : []);
+    var series = [{ name: 'Podíl %', color: SRC_COL[src], values: shares }, { name: 'Kumulativní %', color: COL.gray, type: 'line', values: cums }];
+    var body = C.legend(series) + (pa.total ? defChart('pos-pareto-' + src, function (w) {
+      return C.xyChart({ width: w, height: chartH, labels: labels, tipLabels: top.map(function (x) { return x.code + ' · ' + x.desc; }).concat(restN ? ['ostatní (' + rest.length + ' kódů)'] : []), series: series, yMax: 100, dec: 0, unit: ' %', barLabels: true, allLabels: true, barLabelFn: function (i) { return fmt(counts[i]); } });
+    }, chartH) : empty('Bez záznamů v tomto období.'));
+    var n80 = 0; pa.items.forEach(function (x, i) { if (x.cum <= 80.0001 || (i > 0 && pa.items[i - 1].cum < 80)) n80 = i + 1; });
+    var trs = pa.items.map(function (x, i) {
+      var pn = prev ? (prev[x.desc] || 0) : null, d = pn != null ? x.n - pn : null;
+      return '<tr' + (i < n80 ? ' class="hl"' : '') + '><td class="num">' + (i + 1) + '</td><td><b>' + esc(x.code) + '</b></td><td>' + esc(x.desc) + '</td><td class="num">' + fmt(x.n) + '</td><td class="num">' + fmt(x.share, 1) + ' %</td><td class="num">' + fmt(x.cum, 1) + ' %</td>' +
+        (prev ? '<td class="num">' + fmt(pn) + '</td><td class="num">' + (d > 0 ? '+' : '') + fmt(d) + '</td>' : '') + '</tr>';
+    }).join('');
+    body += '<div class="tw"><table class="pareto"><thead><tr><th class="num">#</th><th>Kód</th><th>Popis vady</th><th class="num">Počet MC</th><th class="num">% podíl</th><th class="num">Kum. %</th>' + (prev ? '<th class="num">Předchozí (' + esc(plabelLong(sc.prevKey)) + ')</th><th class="num">Změna</th>' : '') + '</tr></thead><tbody>' + trs +
+      '<tr class="tot"><td></td><td colspan="2">CELKEM · ' + fmt(pa.items.length) + ' kódů, zvýrazněno = 80 % (' + fmt(n80) + ' kódů)</td><td class="num">' + fmt(pa.total) + '</td><td class="num">100 %</td><td></td>' + (prev ? '<td class="num">' + fmt(sc.prevRows.length) + '</td><td class="num">' + (pa.total - sc.prevRows.length > 0 ? '+' : '') + fmt(pa.total - sc.prevRows.length) + '</td>' : '') + '</tr></tbody></table></div>';
+    return panel('Pareto kódů vad — ' + src + ' — ' + esc(sc.label) + ' <span class="muted">(' + fmt(pa.total) + ' MC)</span>', body);
+  }
   function viewPos() {
     if (!DB.pos.length) return empty('Žádná data z archivu posouzení. Nahraj <b>ArchivPosouzeni_MainCarrier.xlsx</b> v záložce <b>Data &amp; metodika</b>.');
-    var periods = periodsOf(), h = '', cards = '', charts = '';
+    var periods = periodsOf(), h = '', cards = '';
     ['PREFIX', 'SKLAD'].forEach(function (src) {
       var rows = DB.pos.filter(function (r) { return r.src === src; }), lt = lastTwo(rows), byP = sumBy(rows, pk);
       cards += kpiCard({ title: 'Posouzení ' + src, value: fmt(byP[lt.last]), unit: 'ks', rag: ragRel(byP[lt.last] || 0, lt.prev ? byP[lt.prev] : null, 25, 5), sub: cmpLabel(lt) });
-      var last = rows.filter(function (r) { return pk(r) === lt.last; }), byCode = sumBy(last, function (r) { return r.desc; }), total = last.length;
-      var codeOf = {}; last.forEach(function (r) { codeOf[r.desc] = r.code; });
-      var items = Object.keys(byCode).sort(function (a, b) { return byCode[b] - byCode[a]; }).slice(0, 8), cum = 0;
-      charts += panel('Pareto kódů vad — ' + src + ' — ' + plabelLong(lt.last) + ' <span class="muted">(' + fmt(total) + ' ks)</span>', defChart('pos-par-' + src, function (w) {
-        cum = 0;
-        return C.hbars({ width: w, labelWidth: 230, rows: items.map(function (d) { cum += byCode[d]; return { label: codeOf[d] + ' · ' + d, values: [byCode[d]], notes: [fmt(pct(byCode[d], total), 0) + ' % · kum. ' + fmt(pct(cum, total), 0) + ' %'] }; }), series: [{ name: src, color: SRC_COL[src] }], unit: ' ks' });
-      }));
     });
-    h += '<div class="grid3">' + cards;
     var rw = DB.rework, ltR = lastTwo(rw), byR = sumBy(rw, pk);
-    cards = kpiCard({ title: 'Sklad → rework', value: fmt(byR[ltR.last]), unit: 'ks', rag: ragRel(byR[ltR.last] || 0, ltR.prev ? byR[ltR.prev] : null, 25, 5), sub: cmpLabel(ltR) });
-    h += cards + '</div>';
+    cards += kpiCard({ title: 'Sklad → rework', value: fmt(byR[ltR.last]), unit: 'ks', rag: ragRel(byR[ltR.last] || 0, ltR.prev ? byR[ltR.prev] : null, 25, 5), sub: cmpLabel(ltR) });
+    h += '<div class="grid3">' + cards + '</div>';
+    // filtr období pro Pareto — jako "Filtrovat dle měsíce / roku" v Excelu
+    var allKeys = Object.keys(sumBy(DB.pos, pk)).sort().reverse();
+    h += '<div class="daynav"><span>Pareto za:</span><select class="inp" id="posScope"><option value="last"' + (S.posScope === 'last' ? ' selected' : '') + '>poslední období zdroje</option><option value="all"' + (S.posScope === 'all' ? ' selected' : '') + '>vše</option>' +
+      allKeys.map(function (k) { return '<option value="' + esc(k) + '"' + (S.posScope === k ? ' selected' : '') + '>' + esc(plabelLong(k)) + '</option>'; }).join('') + '</select>' +
+      '<span class="muted">Přepínač Týden / Měsíc nahoře určuje, jaká období jsou v nabídce. Pořadí kódů = Pareto dle vybraného období, ne dle celkového součtu.</span></div>';
+    h += '<div class="two">' + paretoPanel('PREFIX') + paretoPanel('SKLAD') + '</div>';
     var cP = sumBy(DB.pos, pk, null, function (r) { return r.src === 'PREFIX'; }), cS = sumBy(DB.pos, pk, null, function (r) { return r.src === 'SKLAD'; });
     var ps = [{ name: 'PREFIX', color: SRC_COL.PREFIX, values: periods.map(function (p) { return cP[p] || null; }) }, { name: 'SKLAD', color: SRC_COL.SKLAD, values: periods.map(function (p) { return cS[p] || null; }) }];
     var vs = P.VARIANTS.map(function (v) { var c = sumBy(DB.pos, pk, null, function (r) { return r.variant === v; }); return { name: v, color: VAR_COL[v], values: periods.map(function (p) { return c[p] || null; }) }; });
     h += '<div class="two">' + panel('Posouzení — ks za období', C.legend(ps) + defChart('pos-tr', function (w) { return C.xyChart({ width: w, height: 260, labels: periods.map(plabel), tipLabels: periods.map(plabelLong), series: ps, barLabels: true }); }))
       + panel('Posouzení podle varianty (PREFIX + SKLAD)', C.legend(vs) + defChart('pos-var', function (w) { return C.xyChart({ width: w, height: 260, labels: periods.map(plabel), tipLabels: periods.map(plabelLong), series: vs, stacked: true, barLabels: true }); })) + '</div>';
-    h += '<div class="two">' + charts + '</div>';
+    // trend top 5 kódů (dle vybraného období) za všechna období
+    var scAll = posScopeRows(DB.pos), top5 = paretoOf(scAll.rows).items.slice(0, 5), codeCol = {}; top5.forEach(function (x, i) { codeCol[x.desc] = SLOTS[i]; });
+    var tser = top5.map(function (x) { var c = sumBy(DB.pos, pk, null, function (r) { return r.desc === x.desc; }); return { name: x.code + ' · ' + x.desc, color: codeCol[x.desc], type: 'line', values: periods.map(function (p) { return c[p] || 0; }) }; });
     var ltAll = lastTwo(DB.pos), vrows = P.VARIANTS.concat(['ostatní']).map(function (v) {
       var n = function (src) { return DB.pos.filter(function (r) { return r.variant === v && r.src === src && pk(r) === ltAll.last; }).length; };
       return { label: v, values: [n('PREFIX'), n('SKLAD')] };
     }).filter(function (r) { return r.values[0] || r.values[1]; });
+    h += '<div class="two">' + panel('Trend top 5 kódů (PREFIX + SKLAD, ks za období)', C.legend(tser) + defChart('pos-top-tr', function (w) { return C.xyChart({ width: w, height: 260, labels: periods.map(plabel), tipLabels: periods.map(plabelLong), series: tser }); }))
+      + panel('Posouzení podle varianty — ' + plabelLong(ltAll.last), C.legend([{ name: 'PREFIX', color: SRC_COL.PREFIX }, { name: 'SKLAD', color: SRC_COL.SKLAD }]) + defChart('pos-var-last', function (w) {
+        return C.hbars({ width: w, rows: vrows, series: [{ name: 'PREFIX', color: SRC_COL.PREFIX }, { name: 'SKLAD', color: SRC_COL.SKLAD }], unit: ' ks' });
+      })) + '</div>';
     var rws = P.VARIANTS.map(function (v) { var c = sumBy(rw, pk, null, function (r) { return r.variant === v; }); return { name: v, color: VAR_COL[v], values: periods.map(function (p) { return c[p] || null; }) }; });
-    h += '<div class="two">' + panel('Posouzení podle varianty — ' + plabelLong(ltAll.last), C.legend([{ name: 'PREFIX', color: SRC_COL.PREFIX }, { name: 'SKLAD', color: SRC_COL.SKLAD }]) + defChart('pos-var-last', function (w) {
-      return C.hbars({ width: w, rows: vrows, series: [{ name: 'PREFIX', color: SRC_COL.PREFIX }, { name: 'SKLAD', color: SRC_COL.SKLAD }], unit: ' ks' });
-    })) + panel('Sklad — na rework podle varianty', C.legend(rws) + defChart('rw-var', function (w) { return C.xyChart({ width: w, height: 260, labels: periods.map(plabel), tipLabels: periods.map(plabelLong), series: rws, stacked: true, barLabels: true }); })) + '</div>';
+    h += panel('Sklad — na rework podle varianty', C.legend(rws) + defChart('rw-var', function (w) { return C.xyChart({ width: w, height: 240, labels: periods.map(plabel), tipLabels: periods.map(plabelLong), series: rws, stacked: true, barLabels: true }); }));
     return h;
   }
 
@@ -472,6 +507,7 @@
     bindDrops();
     document.querySelectorAll('[data-day]').forEach(function (b) { b.onclick = function () { var v = b.getAttribute('data-day'); if (!v) return; S.day = v === 'latest' ? null : v; render(); }; });
     var dp = document.getElementById('dayPick'); if (dp) dp.onchange = function () { S.day = dp.value || null; render(); };
+    var psc = document.getElementById('posScope'); if (psc) psc.onchange = function () { S.posScope = psc.value; render(); };
   }
   function renderHeader() {
     var b = [], f = function (rows, name) { if (!rows.length) return; var d = rows.map(function (r) { return r.d; }).sort(); b.push('<span class="hbadge">' + name + ' do ' + esc(d[d.length - 1]) + '</span>'); };
@@ -584,6 +620,7 @@
     loadEmbedded(); loadLocal();
     try { var st = JSON.parse(localStorage.getItem(LS_SET) || '{}'); if (st.period) S.period = st.period; if (st.span != null) S.span = st.span; } catch (e) { }
     var m = location.hash.match(/tab=(\d)/); if (m) S.tab = Math.min(TABS.length - 1, +m[1]);
+    var mp = location.hash.match(/pos=([\w-]+)/); if (mp) S.posScope = mp[1];
     S.tv = /(^|[#&])tv(=1)?($|&)/.test(location.hash);
     if (S.tv) { // TV režim: bez lišt, hodiny, obnovení každých 15 min (nová data z GitHub Pages / OneDrive)
       document.body.classList.add('tv');
