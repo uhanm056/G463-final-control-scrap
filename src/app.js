@@ -142,7 +142,7 @@
     if (o.rows && o.rows.length) h += '<div class="tile-rows">' + o.rows.map(function (r) { var RR = r[2] ? RAG[r[2].status] : null; return '<div><span>' + esc(r[0]) + '</span><b class="num">' + esc(r[1]) + '</b>' + (RR ? '<span class="rag ' + RR.cls + '">' + RR.icon + ' ' + esc(r[2].text) + '</span>' : '<span></span>') + '</div>'; }).join('') + '</div>';
     if (o.top && o.top.length) h += '<div class="tile-top"><div class="tile-l">' + esc(o.topTitle || 'Top 3 dnes') + '</div>' + o.top.map(function (t, i) { return '<div><span class="tile-rank">' + (i + 1) + '</span><span class="tile-name">' + esc(t.label) + '</span><b class="num">' + esc(t.value) + '</b></div>'; }).join('') + '</div>';
     if (o.spark && o.spark.labels.length > 1) h += '<div class="tile-l">' + esc(o.spark.name) + ' · posledních ' + o.spark.labels.length + ' dnů</div>' + defChart(o.id + '-sp', function (w) {
-      return C.xyChart({ width: w, height: 80, mini: true, labels: o.spark.labels.map(dlabel), series: [{ name: o.spark.name, color: o.color, type: o.spark.type || 'line', values: o.spark.values }], dec: o.spark.dec || 0, unit: o.spark.unit || '' });
+      return C.xyChart({ width: w, height: S.tv ? 58 : 80, mini: true, labels: o.spark.labels.map(dlabel), series: [{ name: o.spark.name, color: o.color, type: o.spark.type || 'line', values: o.spark.values }], dec: o.spark.dec || 0, unit: o.spark.unit || '' });
     }, 80);
     return h + '</div>';
   }
