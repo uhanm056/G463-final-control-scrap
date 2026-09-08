@@ -4,11 +4,14 @@ Kontext pro Claude Code. Přečti si to na začátku každé session a drž se t
 
 ## Co to je
 
-Interaktivní HTML dashboardy pro linku **G463 Prefix** (door trim panely) v závodě
-Yanfeng Planá nad Lužnicí. Dva dashboardy:
+Interaktivní HTML dashboard pro linku **G463 Prefix** (door trim panely) v závodě
+Yanfeng Planá nad Lužnicí. Od 9/2026 jeden soubor `docs/index.html` se záložkami
+Přehled · Finální kontrola Prefix (L1/L2) · Kontrola MC · Posouzení · Scrap · Data & metodika.
+Nahrazuje původní dva soubory (`dashboard_PREFIX_W28.html`, `dashboard_SCRAP_PCO001.html`).
 
-1. **Quality** (`dashboard_PREFIX_W28.html`) — QC inspekce, top 5 vad, týdenní/měsíční trend
-2. **Scrap** (`dashboard_SCRAP_PCO001.html`) — scrap v EUR, Pareto, location PCO001
+Struktura repa: `src/` (parser.js, charts.js, app.js, styles.css, template.html) →
+`node build.js` → `docs/index.html` (inline SheetJS z `vendor/`, data z `data/`).
+Testy: `node test/parser.test.js`. Grafy jsou čisté SVG (bez Chart.js/Canvas).
 
 Uživatel: Milan, Operations Manager. Komunikace česky.
 
@@ -42,42 +45,45 @@ Tohle jsou explicitní pravidla od uživatele, ověřená v praxi:
 
 3. **Top 5 = Pareto dle posledního období** sestupně, ne dle celkového součtu.
 
-## Zdrojová data
+## Zdrojová data (sloupce se hledají podle hlavičky, ne podle pořadí)
 
-- **QC:** `CZ25170_Kontrolný_report_-_Prefix.xlsm`, list `Report`, data od řádku 7
-  - Sloupce: 0=datum, 2=linka, 7=checked, 9=defect, 10=count
-  - Forward-fill datum/linka/checked; deduplikace checked přes (datum, linka)
-- **Scrap:** `scrap_QAD_*.xlsx`, list `Data QAD`, data od řádku 2
-  - Sloupce: 0=Site, 2=Group, 6=Date, 10=Location, 43=Reason, 44=ReasonDesc, 57=EUR
-  - Filter: Location == 'PCO001', Transaction == 'ISS-SCRP'
-  - Vyloučit testy/tech scrap/PPAP (EXCLUDE_CODES + EXCLUDE_KEYWORDS)
-  - `data_only=True` nutné (EUR jsou Excel formule)
+- **QC Prefix:** `CZ25170_Kontrolný_report_-_Prefix.xlsm`, list `Report`, hlavička "Dátum kontroly"
+  - datum, Linka, Variant, VYKONANÝCH kontrol (checked), Chyba, detekovaných vad, POSÚDENIE
+  - Forward-fill datum/linka/varianta; checked je **jen per (datum, linka)**, ne per varianta
+  - L1 dělá LH i RH (převážně RH), L2 jen LH
+- **QC MC:** `CZ26027_Kontrolný_report_MC_Prefix.xlsm`, list `Report`, bez sloupce Linka
+  - checked **per (datum, varianta)**, Posúdenie, NOK po posúdení, OK = checked − NOK
+- **Posouzení:** `ArchivPosouzeni_MainCarrier.xlsx`, listy `Posouzení PREFIX` / `Posouzení SKLAD`
+  (řádek "Kód vady" + popis, každý vyplněný PN = 1 MC), `Sklad - na rework`
+  - Varianta z rodiny PN: MY0547099=HEAT. FRT RH, MY0547078=HEAT. FRT LH, 3448362=FRT RH,
+    3448356=FRT LH, 3449523=RR RH, 3449518=RR LH (prefix "M" se ignoruje)
+- **Scrap:** `scrap_QAD_*.xlsx`, list `Data QAD`, hlavičky `Transaction Number`, `Transaction Type`,
+  `Date`, `Location`, `Reason`, `Description reason`, `Group 2`, `Excluded?`, `EUR`
+  - Filter: Location == 'PCO001', Transaction Type == 'ISS-SCRP', EUR > 0, dedup přes Transaction Number
+  - W/O tests = Excluded? = NO a Reason ≠ 20; With tests = Excluded? = NO (viz skill qlr-mesicni-report)
+  - Zatím neověřeno na reálném exportu (nebyl k dispozici) — při prvním importu zkontrolovat
 
-## OTEVŘENÝ BUG — vyřešit jako první
+## Vyřešené bugy (ať se nerozbijí — pokryto `test/parser.test.js`)
 
-`processExcel` (a jeho Python protějšek) **padá při importu**, když je ve sloupci
-*linka* místo čísla textová hodnota, konkrétně `"6:00 - 14:00"` (někdo omylem
-zapsal směnu). Chyba: `ValueError: invalid literal for int()`.
-
-**Fix:** guard před přetypováním —
-- Python: `if isinstance(linka, (int, float)): linka = int(linka)` else skip/zachovej předchozí
-- JS: `typeof linka === 'number'` check před `parseInt`
+- Text ve sloupci *Linka* (`"6:00 - 14:00"`) → guard `typeof === 'number'`, řádek si ponechá
+  předchozí linku a hlásí se ve "Kontrola kvality dat".
+- Rok v budoucnosti (MC report měl 56 řádků s 2028-08-24) → opraví se na aktuální rok, hlásí se.
+- `hrana > 1mm` vs `Hrana > 1mm` → sjednocení prvního písmene.
 
 ## Známý render fix (hotový, ať to nerozbiješ)
 
-- Y osa: `beginAtZero: true, suggestedMax: 100` — dřív byl natvrdo `min: 15`,
-  což ořezávalo křivku pod 15 %.
+- Osa Y vždy od nuly (SVG grafy: `niceTicks` začíná 0) — dřív natvrdo `min: 15`, ořezávalo křivku.
 - Meta viewport: `width=device-width, initial-scale=1` — dřív `width=2560` (fixní).
+- Posun cca 600 ms Canvas→SVG fallback už není potřeba, grafy jsou SVG rovnou.
 
 ## Otevřené analytické úkoly (nižší priorita)
 
 - Gemba walk L1 pravá strana (tryska robota RH, přípravek) — root cause "Znečistenie od lepidla"
   (vada je jen na RH variantách, LH ~0 %)
-- Aktualizace QC dat o W29+ (blokováno bugem výše)
-- Rozdělit HTML na moduly (`index.html` + `app.js` + `parser.js`) — ZVÁŽIT, ne nutně;
-  self-contained má pro shopfloor přednost
-- Srovnávací pohled měsíc/měsíc, až budou 3+ měsíce dat
+- Scrap: ověřit parser na reálném QAD exportu, doplnit Group 2 / item rozpad
+- MC report W36 2026: 11 170 vad na 1 639 ks (682/100) — ověřit zadání kontrolovaných ks
 - Export do Excelu přímo z panelu
+- Denní pohled (parser drží denní granularitu, UI zatím týden/měsíc)
 
 ## Styl práce
 
