@@ -69,7 +69,7 @@ th.num,td.num{text-align:right;white-space:nowrap}
 .daynav{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
 .daynav .inp{font:inherit;padding:7px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface)}
 .daynav .btn.on{background:var(--accent);color:#fff;border-color:var(--accent)}
-.daynav .tvlink{margin-left:auto;text-decoration:none}
+.daynav .tvlink{text-decoration:none}
 .tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
 @media (max-width:1300px){.tiles{grid-template-columns:repeat(2,1fr)}}
 @media (max-width:800px){.tiles{grid-template-columns:1fr}}
@@ -107,3 +107,19 @@ body.tv .rag{font-size:13px}
 table.pareto tr.hl td{background:#eef4fb}
 table.pareto tr.tot td{font-weight:bold;border-top:2px solid var(--axis,#c3c2b7)}
 select.inp{font:inherit;padding:7px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface)}
+
+/* ---- dlaždice Posouzení: varianty ---- */
+.tsplit{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.tsplit-c{border-left:4px solid var(--accent);padding:0 0 0 10px;min-width:0;line-height:1.25}
+.tsplit-c .tile-v{font-size:34px}
+.tile-v2{font-family:Consolas,monospace;font-size:26px;font-weight:bold;line-height:1.1}
+.tile-v2 .ku{font-size:13px}
+.mbars>div{display:grid;grid-template-columns:minmax(0,1.35fr) 1fr auto;gap:8px;align-items:center;padding:2px 0;font-size:13px}
+.mb-l{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mb-b{height:10px;background:var(--bg);border-radius:3px;overflow:hidden}
+.mb-b i{display:block;height:100%;border-radius:3px}
+.mb-v{white-space:nowrap;font-size:13px}
+.mb-v em{font-style:normal;color:var(--muted);font-size:12px}
+.tile-main .ks{width:100%;font-size:12px}
+body.tv .mbars>div{font-size:14px}
+body.tv .tsplit-c .tile-v{font-size:36px}
