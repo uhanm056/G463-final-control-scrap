@@ -21,6 +21,7 @@ nebo z GitHub Pages / OneDrive.
   - `scrap_QAD_*.xlsx` (list `Data QAD`) — scrap, location PCO001 (jde nahrát i plný 20MB export)
   Import se ukládá do localStorage daného prohlížeče. Záloha/obnova = JSON.
 - **TV**: otevři `index.html#tab=0&tv` — bez lišt, hodiny, obnovení každých 15 min.
+- GitHub Pages: Settings → Pages → branch `main`, folder `/docs` (nebo `/`, kořenový `index.html` přesměruje).
 
 ## Sestavení (jen když chceš data zapéct do souboru)
 
