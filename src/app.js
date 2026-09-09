@@ -3,16 +3,16 @@
   'use strict';
   var P = G463Parser, C = G463Charts, esc = C.esc, fmt = C.fmtNum;
   var LS_KEY = 'g463.db.v1', LS_SET = 'g463.settings.v1';
-  var COL = { s1: '#2a78d6', s2: '#eb6834', s3: '#1baf7a', s4: '#eda100', s5: '#e87ba4', s6: '#008300', s7: '#4a3aa7', s8: '#e34948', gray: '#898781' };
+  var COL = { s1: '#2E6DA4', s2: '#E8A020', s3: '#27AE60', s4: '#8E44AD', s5: '#16A085', s6: '#E67E22', s7: '#7F8C8D', s8: '#C2185B', gray: '#95A5A6', red: '#C0392B' }; // červená jen pro stav a scrap
   var SLOTS = [COL.s1, COL.s2, COL.s3, COL.s4, COL.s5, COL.s6, COL.s7, COL.s8];
-  var LINE_COL = { 1: COL.s1, 2: COL.s2, all: COL.gray }, SIDE_COL = { LH: COL.s1, RH: COL.s2 }, SRC_COL = { PREFIX: COL.s1, SKLAD: COL.s2 };
+  var LINE_COL = { 1: COL.s1, 2: COL.s2, all: COL.gray }, SIDE_COL = { LH: COL.s1, RH: COL.s2 }, SRC_COL = { PREFIX: COL.s1, SKLAD: COL.s2 }, RAGC = { red: 'r', green: 'g', amber: 'a', na: 'n' };
   var VAR_COL = {}; P.VARIANTS.forEach(function (v, i) { VAR_COL[v] = SLOTS[i]; }); VAR_COL['ostatní'] = COL.gray;
   var RAG = {
     red: { cls: 'rag-red', icon: '▲', label: 'zhoršení' }, green: { cls: 'rag-green', icon: '▼', label: 'zlepšení' },
     amber: { cls: 'rag-amber', icon: '●', label: 'beze změny' }, na: { cls: 'rag-na', icon: '–', label: 'bez srovnání' }
   };
-  var TABS = ['Domů', 'Data & metodika'];
-  var DETAILS = { prefix: 'Finální kontrola Prefix', mc: '200% kontrola sklad', pos: 'Quality posouzení', scrap: 'Scrap PCO001' };
+  var TABS = ['🏠 Domů', '📥 Data & metodika'];
+  var DETAILS = { prefix: '🔍 Finální kontrola Prefix', mc: '📦 200% kontrola sklad', pos: '🧪 Quality posouzení', scrap: '💸 Scrap PCO001' };
 
   var DB = emptyDb(), S = { tab: 0, period: 'week', span: 13, top: 'wo', day: null, tv: false, posScope: 'last', detail: null };
   function emptyDb() { return { meta: { builtAt: null, savedAt: null }, qc: { checked: [], defects: [] }, mc: { checked: [], defects: [] }, pos: [], rework: [], scrap: [], sources: [], warnings: [] }; }
@@ -54,7 +54,8 @@
   }
   function kpiCard(o) {
     var r = o.rag || { status: 'na', text: '–' }, R = RAG[r.status];
-    return '<div class="kpi"><div class="kt">' + esc(o.title) + '</div><div class="kv">' + esc(o.value) + '<span class="ku">' + esc(o.unit || '') + '</span></div>' +
+    var kc = { red: 'var(--red)', green: 'var(--green)', amber: 'var(--amber)', na: 'var(--mid)' }[r.status];
+    return '<div class="kpi" style="--kc:' + kc + '"><div class="kt">' + esc(o.title) + '</div><div class="kv ' + RAGC[r.status] + '">' + esc(o.value) + '<span class="ku">' + esc(o.unit || '') + '</span></div>' +
       '<div class="kd"><span class="rag ' + R.cls + '">' + R.icon + ' ' + esc(r.text) + '</span><span class="ks">' + esc(o.sub || '') + '</span></div></div>';
   }
 
@@ -137,12 +138,12 @@
   var isSupplier = function (code) { return /^KR/.test(code || ''); }; // Kragujevac = dodavatel kůže (KRSK, KRSS, KRSW)
   // Dlaždice: {id, title, color, detail, day, empty, label, value, unit, rag, prev | pair:[{label,value,unit,rag,prev,color}], note, spark:{labels, series:[{name,color,type,values}], stacked, dec, unit}}
   function tile(o) {
-    var h = '<a class="tile' + (S.detail === o.detail ? ' on' : '') + '" href="#tab=0&d=' + o.detail + '" data-detail="' + o.detail + '" style="border-top-color:' + (o.color || COL.gray) + '">';
+    var h = '<a class="tile' + (S.detail === o.detail ? ' on' : '') + '" href="#tab=0&d=' + o.detail + '" data-detail="' + o.detail + '" style="--tc:' + (o.color || COL.gray) + '">';
     h += '<div class="tile-h"><span>' + esc(o.title) + '</span><span class="tile-d">' + (o.day ? dowLabel(o.day) : '') + '</span></div>';
     if (o.empty) return h + '<div class="tile-empty">' + o.empty + '</div><div class="tile-go">Detail ›</div></a>';
     var one = function (m, small) {
       var R = m.rag ? RAG[m.rag.status] : null;
-      return '<div class="tile-l">' + esc(m.label) + '</div><div class="tile-main"><div class="tile-v' + (small ? ' sm' : '') + '"' + (m.color ? ' style="color:' + m.color + '"' : '') + '>' + esc(m.value) + '<span class="ku">' + esc(m.unit || '') + '</span></div>' +
+      return '<div class="tile-l">' + esc(m.label) + '</div><div class="tile-main"><div class="tile-v' + (small ? ' sm' : '') + ' ' + RAGC[m.rag ? m.rag.status : 'na'] + '">' + esc(m.value) + '<span class="ku">' + esc(m.unit || '') + '</span></div>' +
         (R ? '<span class="rag ' + R.cls + '">' + R.icon + ' ' + esc(m.rag.text) + '</span>' + (m.prev ? '<span class="ks">vs ' + dlabel(m.prev) + '</span>' : '') : '') + '</div>';
     };
     if (o.pair) h += '<div class="tpair">' + o.pair.map(function (m) { return '<div class="tpair-c" style="border-left-color:' + (m.color || o.color) + '">' + one(m, true) + '</div>'; }).join('') + '</div>';
@@ -199,16 +200,24 @@
       var inc = DB.scrap.filter(function (r) { return !r.excluded; }), days = daysOf(inc), pd = pickDay(days), sp = last10(days, pd.day);
       var eurD = function (d) { return inc.filter(function (r) { return r.d === d && !r.test; }).reduce(function (a, r) { return a + r.eur; }, 0); };
       var today = pd.day ? inc.filter(function (r) { return r.d === pd.day && !r.test; }) : [], byR = sumBy(today, function (r) { return r.reason; }, function (r) { return r.eur; }), topR = Object.keys(byR).sort(function (a, b) { return byR[b] - byR[a]; })[0], descOf = {}; today.forEach(function (r) { descOf[r.reason] = r.desc; });
-      tiles.push(tile({ id: 'h-sc', detail: 'scrap', title: 'Scrap PCO001', color: COL.s8, day: pd.day, prev: pd.prev, empty: pd.day ? null : (inc.length ? 'bez dat k ' + dlabel(cur) : 'bez dat · QAD export'),
+      tiles.push(tile({ id: 'h-sc', detail: 'scrap', title: 'Scrap PCO001', color: COL.red, day: pd.day, prev: pd.prev, empty: pd.day ? null : (inc.length ? 'bez dat k ' + dlabel(cur) : 'bez dat · QAD export'),
         label: 'Scrap w/o tests', value: fmt(eurD(pd.day)), unit: 'EUR', rag: pd.day ? ragRel(eurD(pd.day), pd.prev ? eurD(pd.prev) : null, 25, 50) : null,
         note: pd.day ? '<b class="num">' + fmt(today.length) + '</b> transakcí · nejvíc ' + esc(topR ? topR + ' ' + (descOf[topR] || '') : '–') + ' <b class="num">' + fmt(byR[topR] || 0) + ' EUR</b>' : '',
-        spark: { labels: sp, series: [{ name: 'EUR w/o tests', color: COL.s8, type: 'bar', values: sp.map(eurD) }] } }));
+        spark: { labels: sp, series: [{ name: 'EUR w/o tests', color: COL.red, type: 'bar', values: sp.map(eurD) }] } }));
     })();
-    var h = '<div class="tiles">' + tiles.join('') + '</div>';
+    var h = banner(tiles) + '<div class="tiles">' + tiles.join('') + '</div>';
     if (S.detail && DETAIL_VIEWS[S.detail]) {
       h += '<div class="detail" id="detail"><div class="detail-h"><span>Detail · ' + esc(DETAILS[S.detail]) + '</span><span class="muted">období: ' + (S.period === 'week' ? 'týden' : 'měsíc') + ' · přepínač nahoře</span><button class="btn" data-detail-close="1">✕ zavřít</button></div>' + DETAIL_VIEWS[S.detail]() + '</div>';
     }
     return h;
+  }
+  function banner(tiles) { // stav dne ze semaforů dlaždic (jen ukazatele se srovnáním)
+    var html = tiles.join(''), red = (html.match(/rag-red/g) || []).length, green = (html.match(/rag-green/g) || []).length, amber = (html.match(/rag-amber/g) || []).length, tot = red + green + amber;
+    if (!tot) return '';
+    var cls = red ? 'bad' : amber && !green ? 'warn' : 'ok', ic = red ? '⛔' : cls === 'warn' ? '⚠️' : '✅';
+    var hd = red ? 'Zhoršení u ' + red + ' z ' + tot + ' ukazatelů' : cls === 'warn' ? 'Beze změny' : 'Zlepšení nebo beze změny';
+    var tx = 'Srovnání posledního dne s daty proti předchozímu dni pro každý zdroj zvlášť. ' + (red ? 'Červené hodnoty v dlaždicích jsou zhoršení, klik na dlaždici otevře detail.' : 'Nic se nezhoršilo, detaily jsou pod dlaždicemi.');
+    return '<div class="banner ' + cls + '"><div class="st-i">' + ic + '</div><div class="st-t"><h2>' + hd + '</h2><p>' + tx + '</p></div><div class="st-n"><div class="big">' + fmt(green) + ' / ' + fmt(amber) + ' / ' + fmt(red) + '</div><div class="l">zlepšení / beze změny / zhoršení</div></div></div>';
   }
   function homeBar() { // ovládání dne pro Domů (nahrazuje filtr období v horní liště)
     var allDays = daysOf([].concat(DB.qc.checked, DB.mc.checked, DB.pos, DB.rework, DB.scrap)); if (!allDays.length) return '';
@@ -268,7 +277,7 @@
       kpiCard({ title: 'Na posouzení', value: fmt(a ? a.posudPct : null, 1), unit: '%', rag: ragPP(a ? a.posudPct : null, b ? b.posudPct : null, 2), sub: cmpLabel(lt) }) +
       kpiCard({ title: 'NOK po posouzení', value: fmt(a ? a.nokPct : null, 1), unit: '%', rag: ragPP(a ? a.nokPct : null, b ? b.nokPct : null, 2), sub: cmpLabel(lt) }) + '</div>';
     var vol = [{ name: 'Kontrolováno', color: COL.s3, values: periods.map(function (p) { return st[p] ? st[p].checked : null; }) }];
-    var rates = [{ name: 'Na posouzení %', color: COL.s4, type: 'line', values: periods.map(function (p) { return st[p] ? st[p].posudPct : null; }) }, { name: 'NOK %', color: COL.s8, type: 'line', values: periods.map(function (p) { return st[p] ? st[p].nokPct : null; }) }];
+    var rates = [{ name: 'Na posouzení %', color: COL.s2, type: 'line', values: periods.map(function (p) { return st[p] ? st[p].posudPct : null; }) }, { name: 'NOK %', color: COL.red, type: 'line', values: periods.map(function (p) { return st[p] ? st[p].nokPct : null; }) }];
     h += '<div class="two">' + panel('Kontrolováno ks', defChart('mc-vol', function (w) { return C.xyChart({ width: w, height: 240, labels: periods.map(plabel), tipLabels: periods.map(plabelLong), series: vol, barLabels: true }); }))
       + panel('Na posouzení % a NOK % z kontrolovaných', C.legend(rates) + defChart('mc-rates', function (w) { return C.xyChart({ width: w, height: 240, labels: periods.map(plabel), tipLabels: periods.map(plabelLong), series: rates, dec: 1, unit: ' %' }); })) + '</div>';
     var dr = defectRates(DB.mc.defects, DB.mc.checked, null, lt.last), top5 = dr.items.slice(0, 5), names = top5.map(function (i) { return i.defect; });
@@ -284,8 +293,8 @@
       hb.push({ label: v, values: [s.posudPct, s.nokPct], color: VAR_COL[v] });
     });
     h += '<div class="two">' + panel('Podle varianty — ' + plabelLong(lt.last), table(['Varianta', 'Kontrolováno', 'Vad', 'Vad / 100', 'Na posouzení', 'Posouzení %', 'NOK', 'NOK %'], rows))
-      + panel('Na posouzení % a NOK % podle varianty — ' + plabelLong(lt.last), C.legend([{ name: 'Na posouzení %', color: COL.s4 }, { name: 'NOK %', color: COL.s8 }]) + defChart('mc-var', function (w) {
-        return C.hbars({ width: w, rows: hb, series: [{ name: 'Na posouzení %', color: COL.s4 }, { name: 'NOK %', color: COL.s8 }], fmt: function (v) { return fmt(v, 1); }, unit: ' %' });
+      + panel('Na posouzení % a NOK % podle varianty — ' + plabelLong(lt.last), C.legend([{ name: 'Na posouzení %', color: COL.s2 }, { name: 'NOK %', color: COL.red }]) + defChart('mc-var', function (w) {
+        return C.hbars({ width: w, rows: hb, series: [{ name: 'Na posouzení %', color: COL.s2 }, { name: 'NOK %', color: COL.red }], fmt: function (v) { return fmt(v, 1); }, unit: ' %' });
       })) + '</div>';
     return h;
   }
@@ -377,7 +386,7 @@
       + kpiCard({ title: 'Transakce (w/o tests)', value: fmt(tx[lt.last] || 0), unit: 'ks', rag: ragRel(tx[lt.last] || 0, lt.prev ? (tx[lt.prev] || 0) : null, 25, 5), sub: cmpLabel(lt) }) + '</div>';
     var srcS = DB.sources.filter(function (x) { return x.type === 'scrap' && x.stats; }).pop();
     if (srcS) h += '<p class="muted" style="margin:-6px 0 14px">Export: ' + esc(srcS.file) + ' · řádků celkem ' + fmt(srcS.stats.rows) + ' · jiná location ' + fmt(srcS.stats.otherLoc) + ' · duplicity ' + fmt(srcS.stats.dup) + ' · EUR ≤ 0 vyřazeno ' + fmt(srcS.stats.nonpos) + ' · rozsah ' + esc(srcS.from) + ' → ' + esc(srcS.to) + '</p>';
-    var ser = [{ name: 'W/O tests', color: COL.s1, values: periods.map(function (p) { return wo[p] || null; }) }, { name: 'Testy (kód 20)', color: COL.s4, values: periods.map(function (p) { return tests[p] || null; }) }];
+    var ser = [{ name: 'W/O tests', color: COL.s1, values: periods.map(function (p) { return wo[p] || null; }) }, { name: 'Testy (kód 20)', color: COL.s2, values: periods.map(function (p) { return tests[p] || null; }) }];
     var last = inc.filter(function (r) { return pk(r) === lt.last && !r.test; }), byR = sumBy(last, function (r) { return r.reason; }, function (r) { return r.eur; }), descOf = {}, cntR = sumBy(last, function (r) { return r.reason; });
     last.forEach(function (r) { descOf[r.reason] = r.desc; });
     var tot = last.reduce(function (a, r) { return a + r.eur; }, 0), reasons = Object.keys(byR).sort(function (a, b) { return byR[b] - byR[a]; }).slice(0, 8), cum = 0;

@@ -16,6 +16,10 @@ Nahrazuje původní dva soubory (`dashboard_PREFIX_W28.html`, `dashboard_SCRAP_P
 Struktura repa: `src/` (parser.js, charts.js, app.js, styles.css, template.html) →
 `node build.js` → `docs/index.html` (inline SheetJS z `vendor/`, data z `data/`).
 Testy: `node test/parser.test.js`. Grafy jsou čisté SVG (bez Chart.js/Canvas).
+Vzhled = styl aplikace Quality loss report (repo `uhanm056/Quality-loss-report-Scrap`, `css/styles.css`):
+paleta Yanfeng (--dark #1B3A5C, --mid #2E6DA4, --accent #E8A020, --green #27AE60, --red #C0392B),
+gradientová hlavička, oranžová aktivní záložka, stavový banner dne (ok/warn/bad), KPI s barevným proužkem.
+Červená je jen pro stav a scrap, ne pro série v grafech.
 
 Uživatel: Milan, Operations Manager. Komunikace česky.
 
@@ -25,7 +29,8 @@ Shopfloor síť a zobrazení na TV kladou omezení, která se NESMÍ porušit:
 
 - **Žádné CDN.** Shopfloor síť blokuje Google Fonts i cdnjs. Chart.js a SheetJS
   musí být **inline v souboru** (npm registry funguje, cdnjs ne).
-- **Fonty offline:** Arial (nadpisy/text), Consolas (čísla). Žádný `@import` z Google Fonts.
+- **Fonty offline:** od 9/2026 `'Segoe UI', Arial` (systémové na Windows), čísla `tabular-nums`.
+  Dřív Arial + Consolas. Žádný `@import` z Google Fonts.
 - **Canvas + SVG fallback.** Na TV někdy chybí GPU akcelerace → Canvas se nevykreslí.
   Po ~600 ms fallback na SVG render.
 - **Self-contained HTML.** Jeden soubor, žádný build. Deploy = hodit na GitHub Pages
