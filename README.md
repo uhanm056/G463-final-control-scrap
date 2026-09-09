@@ -13,7 +13,7 @@ nebo z GitHub Pages / OneDrive.
 - **TV režim**: `index.html#tab=0&tv` — bez lišt, 4 sloupce, hodiny, automatické obnovení
   stránky každých 15 min (nová data z GitHub Pages / OneDrive se načtou samy).
 - Přepínač **Týden / Měsíc** a počet zobrazených období platí pro týdenní/měsíční záložky.
-- Přímý odkaz na záložku: `index.html#tab=N` (0 = Domů, 1 = Přehled, … 6 = Data).
+- Přímý odkaz: `index.html#tab=0&d=prefix|mc|pos|scrap` otevře Domů s rozbaleným detailem; `#tab=1` = Data & metodika.
 - **Nová data** přetáhni do záložky *Data & metodika* (typ souboru se pozná podle listu):
   - `CZ25170_Kontrolný_report_-_Prefix.xlsm` — finální kontrola Prefix, L1/L2
   - `CZ26027_Kontrolný_report_MC_Prefix.xlsm` — kontrola MC (posouzení, NOK)
