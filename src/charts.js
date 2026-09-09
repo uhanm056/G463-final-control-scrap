@@ -3,8 +3,8 @@
  */
 var G463Charts = (function () {
   'use strict';
-  var INK = { primary: '#0b0b0b', secondary: '#52514e', muted: '#898781', grid: '#e1e0d9', axis: '#c3c2b7', surface: '#fcfcfb' };
-  var MONO = 'Consolas, "Courier New", monospace', SANS = 'Arial, Helvetica, sans-serif';
+  var INK = { primary: '#2C3E50', secondary: '#5D6D7E', muted: '#7F8C8D', grid: '#E6EBF0', axis: '#C9D2DB', surface: '#FFFFFF' };
+  var MONO = '"Segoe UI", Arial, sans-serif', SANS = '"Segoe UI", Arial, Helvetica, sans-serif';
 
   function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;'); }
   function fmtNum(v, dec) {

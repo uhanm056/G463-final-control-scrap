@@ -5,14 +5,21 @@ Kontext pro Claude Code. Přečti si to na začátku každé session a drž se t
 ## Co to je
 
 Interaktivní HTML dashboard pro linku **G463 Prefix** (door trim panely) v závodě
-Yanfeng Planá nad Lužnicí. Od 9/2026 jeden soubor `docs/index.html` se záložkami
-Domů (dlaždice-rozcestník: jedno číslo + semafor + mini trend, klik = detail; `#tab=0&tv` = režim pro TV) · Přehled · Finální kontrola Prefix (L1/L2) ·
-Kontrola MC · Posouzení · Scrap · Data & metodika.
+Yanfeng Planá nad Lužnicí. Od 9/2026 jeden soubor `docs/index.html`, dvě záložky: **Domů** a **Data & metodika**.
+Domů = 4 dlaždice, jedna na každý zdrojový Excel: Finální kontrola Prefix (L1 a L2 vedle sebe) ·
+200% kontrola sklad (report CZ26027, dřív „Kontrola MC“) · Quality posouzení (PREFIX a SKLAD vedle sebe) ·
+Scrap PCO001. Klik na dlaždici rozbalí detail POD dlaždicemi (Pareto, trendy, tabulky; `#tab=0&d=prefix|mc|pos|scrap`).
+`#tab=0&tv` = režim pro TV (jen dlaždice 2×2, hodiny, reload 15 min). Záložka „Přehled“ byla zrušena (uživateli
+přišla nepřehledná).
 Nahrazuje původní dva soubory (`dashboard_PREFIX_W28.html`, `dashboard_SCRAP_PCO001.html`).
 
 Struktura repa: `src/` (parser.js, charts.js, app.js, styles.css, template.html) →
 `node build.js` → `docs/index.html` (inline SheetJS z `vendor/`, data z `data/`).
 Testy: `node test/parser.test.js`. Grafy jsou čisté SVG (bez Chart.js/Canvas).
+Vzhled = styl aplikace Quality loss report (repo `uhanm056/Quality-loss-report-Scrap`, `css/styles.css`):
+paleta Yanfeng (--dark #1B3A5C, --mid #2E6DA4, --accent #E8A020, --green #27AE60, --red #C0392B),
+gradientová hlavička, oranžová aktivní záložka, stavový banner dne (ok/warn/bad), KPI s barevným proužkem.
+Červená je jen pro stav a scrap, ne pro série v grafech.
 
 Uživatel: Milan, Operations Manager. Komunikace česky.
 
@@ -22,7 +29,8 @@ Shopfloor síť a zobrazení na TV kladou omezení, která se NESMÍ porušit:
 
 - **Žádné CDN.** Shopfloor síť blokuje Google Fonts i cdnjs. Chart.js a SheetJS
   musí být **inline v souboru** (npm registry funguje, cdnjs ne).
-- **Fonty offline:** Arial (nadpisy/text), Consolas (čísla). Žádný `@import` z Google Fonts.
+- **Fonty offline:** od 9/2026 `'Segoe UI', Arial` (systémové na Windows), čísla `tabular-nums`.
+  Dřív Arial + Consolas. Žádný `@import` z Google Fonts.
 - **Canvas + SVG fallback.** Na TV někdy chybí GPU akcelerace → Canvas se nevykreslí.
   Po ~600 ms fallback na SVG render.
 - **Self-contained HTML.** Jeden soubor, žádný build. Deploy = hodit na GitHub Pages
@@ -93,7 +101,7 @@ Tohle jsou explicitní pravidla od uživatele, ověřená v praxi:
 - MC report W36 2026: 11 170 vad na 1 639 ks (682/100) — ověřit zadání kontrolovaných ks
 - Export do Excelu přímo z panelu
 - Domů: dlaždice ukazují poslední den s daty per zdroj; den lze zvolit ručně (S.day). Uživatel chce
-  úvodní stranu ČISTOU — žádné seznamy vad v dlaždicích, detail patří do záložek.
+  úvodní stranu ČISTOU — žádné seznamy vad v dlaždicích, detail patří pod dlaždice (S.detail).
 
 ## Styl práce
 
